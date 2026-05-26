@@ -36,7 +36,7 @@
 
   <!-- URL de tu Google Apps Script integrada directamente -->
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyJn2eOjpOZbmjsdzYelVUON0uyl8FfQfqRyQzTxv_nP7F0qnY_IXCY-3XVy1YuZaaRlw/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbwJvj6bAfARKxyPjICMuRage8ntpoN45bmHo2EIzW0KspARH6AGS1H58VuTWS3j4Hf0LQ/exec";
   </script>
 
   <!-- CONTENEDOR PRINCIPAL RESPONSIVO -->
@@ -187,6 +187,7 @@
     // Variables globales de la lista y reproducción
     let listaAudios = [];
     let audioActualIndex = -1;
+    let descargasActivas = {}; // Evita múltiples descargas del mismo audio en la sesión
 
     // Componentes del DOM
     const audioInput = document.getElementById('audio-input');
@@ -220,6 +221,23 @@
     
     const toast = document.getElementById('status-toast');
     const toastMsg = document.getElementById('toast-message');
+
+    // Helper: Decodifica de forma segura y segmentada una cadena Base64 a un objeto Blob
+    function base64ToBlob(base64, mimeType) {
+      const byteCharacters = atob(base64);
+      const byteArrays = [];
+      const sliceSize = 1024; // Procesamiento por bloques para óptima gestión de memoria móvil
+      for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+      }
+      return new Blob(byteArrays, {type: mimeType});
+    }
 
     // ==========================================
     // NOTIFICACIONES DINÁMICAS (TOAST)
@@ -485,7 +503,7 @@
     }
 
     // ==========================================
-    // REPRODUCTOR MULTIMEDIA Y SEGUNDO PLANO
+    // REPRODUCTOR MULTIMEDIA CON DESCARGA EN MEMORIA (BLOB-PROXY)
     // ==========================================
     async function seleccionarAudio(idx) {
       if (idx < 0 || idx >= listaAudios.length) return;
@@ -499,27 +517,78 @@
       // Mostrar estado cargando de inmediato en el reproductor
       setPlayerState('loading');
       
-      let finalStreamUrl = audio.url;
+      // Detener reproducción actual
+      audioPlayer.pause();
       
-      // --- BYPASS DE REDIRECCIÓN EN TIEMPO REAL (iOS/SAFARI COMPLIANT) ---
-      // Le pedimos a Google Apps Script que resuelva la redirección en el servidor.
-      // Esto nos regresa la URL directa final del nodo de Google sin saltos de redirección,
-      // haciendo que Safari reproduzca el audio al instante y soporte Byte-Range requests fluidamente.
-      try {
-        const response = await fetchWithRetry(`${API_URL}?action=get_stream_url&driveId=${audio.driveId}`);
-        const resData = await response.json();
-        if (resData.success && resData.url) {
-          finalStreamUrl = resData.url;
-        }
-      } catch (err) {
-        console.warn("No se pudo resolver el CDN directo. Usando fallback con redirección...", err);
+      // Si el audiolibro ya fue descargado en esta sesión, evitar duplicar la descarga
+      if (descargasActivas[audio.driveId]) {
+        audioPlayer.src = descargasActivas[audio.driveId];
+        audioPlayer.load();
+        reproducir();
+        configurarMediaSession(audio.nombre);
+        return;
       }
-      
-      audioPlayer.src = finalStreamUrl;
-      audioPlayer.load();
-      
-      reproducir();
-      configurarMediaSession(audio.nombre);
+
+      showToast("⏳ Conectando con Google Drive...");
+
+      // --- TECNOLOGÍA PROXY DE TRANSMISIÓN SEGUIDA ---
+      // Solicitamos el flujo de texto Base64 desde el script y realizamos la barra de buffer de descarga.
+      try {
+        const streamUrl = `${API_URL}?action=get_stream&driveId=${audio.driveId}`;
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', streamUrl, true);
+        xhr.responseType = 'text'; // Obtenemos texto plano Base64
+
+        // Escucha del progreso en tiempo real de descarga al búfer local
+        xhr.onprogress = function(e) {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            showToast(`⏳ Descargando audiolibro en memoria: ${pct}% (No bloquees tu pantalla)`);
+          } else {
+            showToast(`⏳ Descargando audiolibro en memoria...`);
+          }
+        };
+
+        xhr.onload = function() {
+          if (xhr.status === 200) {
+            try {
+              const base64Data = xhr.responseText;
+              
+              // Decodificación segmentada de la cadena
+              const blob = base64ToBlob(base64Data, 'audio/mp4');
+              const localBlobUrl = URL.createObjectURL(blob);
+              
+              descargasActivas[audio.driveId] = localBlobUrl;
+              
+              audioPlayer.src = localBlobUrl;
+              audioPlayer.load();
+              
+              showToast("✅ Descarga completada. Iniciando reproducción.");
+              reproducir();
+              configurarMediaSession(audio.nombre);
+            } catch (decodingError) {
+              console.error(decodingError);
+              setPlayerState('paused');
+              showToast("❌ Error al procesar los datos de audio descargados.");
+            }
+          } else {
+            setPlayerState('paused');
+            showToast("❌ No se pudo descargar el archivo de audio del servidor.");
+          }
+        };
+
+        xhr.onerror = function() {
+          setPlayerState('paused');
+          showToast("❌ Fallo de red durante la descarga del audiolibro.");
+        };
+
+        xhr.send();
+
+      } catch (err) {
+        console.error(err);
+        setPlayerState('paused');
+        showToast("❌ Error al inicializar el túnel de descarga binaria.");
+      }
     }
 
     function reproducir() {
@@ -528,7 +597,7 @@
           setPlayerState('playing');
         })
         .catch(err => {
-          console.warn("Autoplay bloqueado o cargando recurso...", err);
+          console.warn("Autoplay bloqueado por el navegador...", err);
           setPlayerState('paused');
         });
     }
@@ -557,17 +626,17 @@
       const err = audioPlayer.error;
       if (err) {
         switch (err.code) {
-          case 1: // MEDIA_ERR_ABORTED
+          case 1:
             msg = "La carga del archivo de audio fue cancelada por el sistema.";
             break;
-          case 2: // MEDIA_ERR_NETWORK
-            msg = "Error de red al descargar el audio. Tu conexión Wi-Fi/Datos falló.";
+          case 2:
+            msg = "Error de red al procesar los datos de memoria del reproductor.";
             break;
-          case 3: // MEDIA_ERR_DECODE
-            msg = "Error al decodificar el archivo. El formato .m4a podría estar corrupto o no ser soportado por este móvil.";
+          case 3:
+            msg = "Error al decodificar los datos. El archivo .m4a no pudo ser decodificado localmente.";
             break;
-          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-            msg = "No se pudo acceder al archivo. Verifica que tu carpeta y archivos en Drive estén configurados como públicos ('Cualquier persona con el enlace puede ver').";
+          case 4:
+            msg = "El formato local del búfer no es compatible con el reproductor de este móvil o el archivo original en Drive está inaccesible.";
             break;
         }
       }
