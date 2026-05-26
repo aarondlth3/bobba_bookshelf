@@ -1,672 +1,216 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bobba Bookshelf</title>
-  <!-- Tailwind CSS para diseño moderno, fluido y adaptativo en móviles -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    /* Estilos personalizados para animaciones y scroll de biblioteca */
-    @keyframes pulse-slow {
-      0%, 100% { opacity: 0.4; }
-      50% { opacity: 0.8; }
-    }
-    .animate-pulse-slow {
-      animation: pulse-slow 3s infinite;
-    }
-    /* Suavizado de transición para la barra de progreso de subida */
-    #upload-progress-bar {
-      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    /* Ocultar barra de scroll estándar pero mantener funcionalidad */
-    .custom-scrollbar::-webkit-scrollbar {
-      width: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: rgba(15, 23, 42, 0.3);
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: rgba(99, 102, 241, 0.5);
-      border-radius: 2px;
-    }
-  </style>
-</head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+/**
+ * ==============================================================================
+ * CONFIGURACIÓN INICIAL
+ * ==============================================================================
+ * Se ha configurado automáticamente el ID de la carpeta de Google Drive 
+ * que proporcionaste ("bobba_bookshelf").
+ */
+const FOLDER_ID = "1bUA8eEsYcxVVrCFCE1MK1gOQAd4FvDOl";
 
-  <!-- URL de tu Google Apps Script integrada directamente -->
-  <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyAqWhMKznZNDPxHUENdvs4hOPIUnvU5cS0dWgM4XUH1grNuOkPZ1xjB40lcp2BR9IcWQ/exec";
-  </script>
-
-  <!-- CONTENEDOR PRINCIPAL RESPONSIVO -->
-  <main class="max-w-md w-full mx-auto px-4 py-6 flex-grow flex flex-col justify-between">
+/**
+ * 1. MÉTODO GET (doGet)
+ * Retorna la lista de audios o resuelve la redirección de streaming en tiempo real.
+ */
+function doGet(e) {
+  try {
+    const action = e.parameter.action;
     
-    <!-- ENCABEZADO -->
-    <header class="text-center py-4">
-      <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-        Bobba Bookshelf
-      </h1>
-      <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest font-semibold">Reproductor Personal de Audiolibros</p>
-    </header>
-
-    <!-- SECCIÓN DE CARGA (UPLOAD) CON PROTOCOLO FRAGMENTADO -->
-    <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 mb-6 shadow-xl backdrop-blur-md">
-      <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-3">Subir nuevo audio</h2>
-      
-      <div class="space-y-4">
-        <!-- Zona de selección de archivo táctil -->
-        <label id="drop-zone" class="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-6 cursor-pointer transition-all bg-slate-950/40">
-          <svg class="w-8 h-8 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
-          </svg>
-          <span id="file-label" class="text-xs text-slate-300 text-center font-medium truncate max-w-[250px]">
-            Seleccionar archivo .m4a
-          </span>
-          <input type="file" id="audio-input" accept=".m4a" class="hidden">
-        </label>
-
-        <!-- PANEL DE PROGRESO DE SUBIDA FRAGMENTADA -->
-        <div id="upload-progress-container" class="hidden bg-slate-950/80 rounded-xl p-4 border border-slate-800/80 space-y-3">
-          <div class="flex justify-between items-center">
-            <span id="upload-status-text" class="text-xs text-slate-300 font-medium">Preparando fragmentos...</span>
-            <span id="upload-percentage" class="text-xs font-bold text-indigo-400 font-mono">0%</span>
-          </div>
-          <!-- Barra visual de progreso -->
-          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-            <div id="upload-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-0 rounded-full"></div>
-          </div>
-          <p id="upload-warning-text" class="text-[10px] text-slate-500 text-center italic hidden animate-pulse-slow">
-            Reconstruyendo el audio en tu cuenta de Google Drive. Por favor, mantén esta pestaña abierta.
-          </p>
-        </div>
-
-        <!-- Botón de acción principal de subida -->
-        <button id="upload-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg transition duration-200 active:scale-[0.98] flex items-center justify-center gap-2">
-          <span>Subir Audiolibro</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- BIBLIOTECA DE AUDIOS -->
-    <section class="flex-grow flex flex-col min-h-[250px] mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">Biblioteca de Libros</h2>
-        <!-- Botón para actualizar manualmente -->
-        <button id="refresh-btn" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 active:scale-95 transition-all">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15H16M16 11.5v3.5h3.5"></path>
-          </svg>
-          Actualizar
-        </button>
-      </div>
-
-      <!-- Contenedor scrollable para evitar desbordamiento en pantallas pequeñas -->
-      <div id="audio-list-container" class="flex-grow overflow-y-auto max-h-[320px] space-y-2.5 pr-1 custom-scrollbar">
-        <div class="text-center py-12 text-slate-500 text-sm">
-          <div class="animate-pulse-slow mb-2 font-medium">Sincronizando con Google Drive...</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- REPRODUCTOR MULTIMEDIA PRINCIPAL -->
-    <section id="player-card" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-300">
-      <!-- Elemento de iluminación decorativa en el fondo -->
-      <div class="absolute -top-12 -left-12 w-24 h-24 bg-indigo-500/10 blur-2xl rounded-full"></div>
-      
-      <div class="relative z-10 space-y-5">
-        <!-- Título del audiolibro actual -->
-        <div class="text-center">
-          <p id="player-title" class="text-sm font-bold text-slate-200 truncate px-2">Ningún audio seleccionado</p>
-          <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1 font-semibold">Bobba Bookshelf</p>
-        </div>
-
-        <!-- Barra de progreso interactiva (Buscador/Slider) -->
-        <div class="space-y-1.5">
-          <div class="relative group">
-            <input type="range" id="progress-bar" min="0" max="100" value="0" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none">
-          </div>
-          <!-- Tiempos del track -->
-          <div class="flex justify-between text-[10px] text-slate-400 font-mono font-medium">
-            <span id="time-current">00:00</span>
-            <span id="time-duration">00:00</span>
-          </div>
-        </div>
-
-        <!-- CONTROLES ADAPTADOS PARA PANTALLAS TÁCTILES -->
-        <div class="flex items-center justify-center gap-8">
-          <!-- Botón de retroceso de 10 segundos -->
-          <button id="btn-back" class="text-slate-400 hover:text-white active:scale-90 transition-all p-3 rounded-full hover:bg-slate-800/50 flex flex-col items-center justify-center" title="Retroceder 10 segundos">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path>
-            </svg>
-            <span class="text-[8px] mt-1 font-extrabold text-slate-500 tracking-wider">-10s</span>
-          </button>
-
-          <!-- Botón de reproducción de gran tamaño con Spinner Integrado -->
-          <button id="btn-play" class="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all" title="Reproducir / Pausar">
-            <!-- Icono de Play -->
-            <svg id="play-icon" class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 5v14l11-7z"></path>
-            </svg>
-            <!-- Icono de Pausa -->
-            <svg id="pause-icon" class="w-8 h-8 hidden" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
-            </svg>
-            <!-- Spinner de Carga (Oculto por defecto) -->
-            <svg id="loading-icon" class="w-8 h-8 hidden animate-spin text-white" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-          </button>
-
-          <!-- Botón de avance de 10 segundos -->
-          <button id="btn-forward" class="text-slate-400 hover:text-white active:scale-90 transition-all p-3 rounded-full hover:bg-slate-800/50 flex flex-col items-center justify-center" title="Adelantar 10 segundos">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 005 8v8a1 1 0 001.6.8l5.334-4zM19.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.334-4z"></path>
-            </svg>
-            <span class="text-[8px] mt-1 font-extrabold text-slate-500 tracking-wider">+10s</span>
-          </button>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- ELEMENTO AUDIO INVISIBLE (HTML5 AUDIO) -->
-  <audio id="audio-player" class="hidden" preload="auto"></audio>
-
-  <!-- NOTIFICACIÓN FLOTANTE (TOAST) -->
-  <div id="status-toast" class="fixed bottom-4 left-4 right-4 bg-slate-900 border border-slate-800 text-slate-200 text-xs py-3.5 px-4 rounded-xl shadow-2xl flex items-center justify-between translate-y-24 opacity-0 transition-all duration-300 z-50">
-    <span id="toast-message">Procesando...</span>
-    <button onclick="hideToast()" class="text-indigo-400 font-bold ml-2 px-2 py-1 hover:bg-slate-800 rounded">Cerrar</button>
-  </div>
-
-  <!-- COMPORTAMIENTO Y LÓGICA DE LA APLICACIÓN -->
-  <script>
-    // Variables globales de la lista y reproducción
-    let listaAudios = [];
-    let audioActualIndex = -1;
-
-    // Componentes del DOM
-    const audioInput = document.getElementById('audio-input');
-    const fileLabel = document.getElementById('file-label');
-    const uploadBtn = document.getElementById('upload-btn');
-    const refreshBtn = document.getElementById('refresh-btn');
-    const audioListContainer = document.getElementById('audio-list-container');
-    const audioPlayer = document.getElementById('audio-player');
+    // --- NUEVA ACCIÓN: RESOLVER REDIRECCIÓN DE STREAMING EN TIEMPO REAL ---
+    if (action === "get_stream_url") {
+      const driveId = e.parameter.driveId;
+      if (!driveId) {
+        return construirRespuestaJson({ success: false, error: "Falta el ID de Drive." });
+      }
+      const directUrl = resolverUrlDirectaCdn(driveId);
+      return construirRespuestaJson({ success: true, url: directUrl });
+    }
     
-    // Componentes del Panel de Progreso
-    const uploadProgressContainer = document.getElementById('upload-progress-container');
-    const uploadStatusText = document.getElementById('upload-status-text');
-    const uploadPercentage = document.getElementById('upload-percentage');
-    const uploadProgressBar = document.getElementById('upload-progress-bar');
-    const uploadWarningText = document.getElementById('upload-warning-text');
+    // --- ACCIÓN POR DEFECTO: LISTAR AUDIOS ---
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const data = sheet.getDataRange().getValues();
+    const responseData = [];
     
-    // Componentes del Reproductor
-    const playerTitle = document.getElementById('player-title');
-    const progressBar = document.getElementById('progress-bar');
-    const timeCurrent = document.getElementById('time-current');
-    const timeDuration = document.getElementById('time-duration');
-    
-    // Controles y sus Iconos
-    const btnPlay = document.getElementById('btn-play');
-    const playIcon = document.getElementById('play-icon');
-    const pauseIcon = document.getElementById('pause-icon');
-    const loadingIcon = document.getElementById('loading-icon');
-    
-    const btnBack = document.getElementById('btn-back');
-    const btnForward = document.getElementById('btn-forward');
-    
-    const toast = document.getElementById('status-toast');
-    const toastMsg = document.getElementById('toast-message');
-
-    // ==========================================
-    // NOTIFICACIONES DINÁMICAS (TOAST)
-    // ==========================================
-    let toastTimeout;
-    function showToast(mensaje, duracion = 4000) {
-      clearTimeout(toastTimeout);
-      toastMsg.textContent = mensaje;
-      toast.classList.remove('translate-y-24', 'opacity-0');
-      toast.classList.add('translate-y-0', 'opacity-100');
-      if (duracion > 0) {
-        toastTimeout = setTimeout(hideToast, duracion);
+    if (data.length > 1) {
+      for (let i = 1; i < data.length; i++) {
+        const id = data[i][0];
+        const nombre = data[i][1];
+        const driveId = data[i][2];
+        const streamUrl = `https://drive.google.com/uc?export=download&id=${driveId}`;
+        
+        responseData.push({
+          id: id,
+          nombre: nombre,
+          driveId: driveId,
+          url: streamUrl
+        });
       }
     }
+    
+    return construirRespuestaJson({ 
+      success: true, 
+      audios: responseData 
+    });
+    
+  } catch (error) {
+    return construirRespuestaJson({ 
+      success: false, 
+      error: "Error al procesar solicitud GET: " + error.toString() 
+    });
+  }
+}
 
-    // Ocultar notificaciones flotantes
-    function hideToast() {
-      toast.classList.add('translate-y-24', 'opacity-0');
-      toast.classList.remove('translate-y-0', 'opacity-100');
-    }
-
-    // Control Visual de los Estados del Botón de Play
-    function setPlayerState(state) {
-      if (state === 'loading') {
-        playIcon.classList.add('hidden');
-        pauseIcon.classList.add('hidden');
-        loadingIcon.classList.remove('hidden');
-      } else if (state === 'playing') {
-        playIcon.classList.add('hidden');
-        loadingIcon.classList.add('hidden');
-        pauseIcon.classList.remove('hidden');
-      } else { // paused / idle
-        pauseIcon.classList.add('hidden');
-        loadingIcon.classList.add('hidden');
-        playIcon.classList.remove('hidden');
-      }
-    }
-
-    // ==========================================
-    // CARGA DE ARCHIVOS POR FRAGMENTOS (CHUNKS)
-    // ==========================================
-    audioInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        fileLabel.textContent = file.name;
-        fileLabel.classList.add('text-indigo-400');
-      } else {
-        fileLabel.textContent = "Seleccionar archivo .m4a";
-        fileLabel.classList.remove('text-indigo-400');
+/**
+ * FUNCIÓN AUXILIAR: resolverUrlDirectaCdn
+ * Hace una petición simulada en el servidor para seguir las redirecciones de Google Drive
+ * y obtener el enlace directo final sin redirecciones, garantizando compatibilidad con iOS/Safari.
+ */
+function resolverUrlDirectaCdn(driveId) {
+  const urlUrl = `https://drive.google.com/uc?export=download&id=${driveId}`;
+  try {
+    // Primera petición: detecta la redirección de drive.google.com
+    const response = UrlFetchApp.fetch(urlUrl, {
+      followRedirects: false,
+      muteHttpExceptions: true,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
-
-    uploadBtn.addEventListener('click', async () => {
-      const file = audioInput.files[0];
-      if (!file) {
-        showToast("⚠️ Por favor, selecciona primero un archivo .m4a");
-        return;
-      }
-
-      uploadBtn.disabled = true;
-      uploadBtn.classList.add('opacity-50');
-      
-      uploadProgressContainer.classList.remove('hidden');
-      actualizarProgreso(0, "Paso 1: Convirtiendo archivo a datos seguros...");
-      uploadWarningText.classList.add('hidden');
-
-      try {
-        const reader = new FileReader();
-        
-        reader.onload = async function(event) {
-          actualizarProgreso(3, "Paso 1: Conversión lista. Fragmentando archivo...");
-          
-          const base64Data = event.target.result.split(',')[1];
-          const totalLength = base64Data.length;
-          const CHUNK_SIZE = 1500000; // 1.5MB
-          const totalChunks = Math.ceil(totalLength / CHUNK_SIZE);
-          
-          const uploadId = "UP-" + new Date().getTime() + "-" + Math.random().toString(36).substring(2, 9);
-          let chunkIndex = 0;
-          
-          async function subirSiguienteFragmento() {
-            if (chunkIndex < totalChunks) {
-              const start = chunkIndex * CHUNK_SIZE;
-              const end = Math.min(start + CHUNK_SIZE, totalLength);
-              const chunkData = base64Data.substring(start, end);
-              
-              const progresoVisual = Math.round((chunkIndex / totalChunks) * 85) + 5;
-              actualizarProgreso(progresoVisual, `Paso 2: Subiendo fragmento ${chunkIndex + 1} de ${totalChunks}...`);
-              
-              const payload = {
-                action: "upload_chunk",
-                uploadId: uploadId,
-                chunkIndex: chunkIndex,
-                fileData: chunkData
-              };
-              
-              try {
-                const response = await fetchWithRetry(API_URL, {
-                  method: 'POST',
-                  body: JSON.stringify(payload)
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                  chunkIndex++;
-                  await subirSiguienteFragmento();
-                } else {
-                  resetearEstadoCarga("❌ Error al procesar fragmento en servidor: " + (data.error || "Desconocido"));
-                }
-              } catch (err) {
-                resetearEstadoCarga("❌ Error de comunicación de red al subir fragmentos.");
-              }
-            } else {
-              actualizarProgreso(93, "Paso 3: Uniendo fragmentos y guardando audio...");
-              uploadWarningText.classList.remove('hidden');
-              
-              const mergePayload = {
-                action: "merge_chunks",
-                uploadId: uploadId,
-                fileName: file.name,
-                totalChunks: totalChunks
-              };
-              
-              try {
-                const response = await fetchWithRetry(API_URL, {
-                  method: 'POST',
-                  body: JSON.stringify(mergePayload)
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                  actualizarProgreso(100, "¡Subida y procesamiento completos!");
-                  showToast("✅ ¡Audio de gran tamaño subido con éxito!");
-                  setTimeout(() => {
-                    uploadProgressContainer.classList.add('hidden');
-                    audioInput.value = '';
-                    fileLabel.textContent = "Seleccionar archivo .m4a";
-                    fileLabel.classList.remove('text-indigo-400');
-                    uploadBtn.disabled = false;
-                    uploadBtn.classList.remove('opacity-50');
-                  }, 1500);
-                  cargarBiblioteca();
-                } else {
-                  resetearEstadoCarga("❌ Error al fusionar el archivo de audio: " + data.error);
-                }
-              } catch (err) {
-                resetearEstadoCarga("❌ Error de red durante la fase de unión en el servidor.");
-              }
-            }
+    const headers = response.getHeaders();
+    let location = headers['Location'] || headers['location'];
+    
+    if (location) {
+      // Segunda petición: si redirige a drive.usercontent, resolvemos para obtener el nodo CDN directo
+      if (location.includes('drive.usercontent.google.com') || location.includes('google.com')) {
+        const secondResponse = UrlFetchApp.fetch(location, {
+          followRedirects: false,
+          muteHttpExceptions: true,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
           }
-          
-          await subirSiguienteFragmento();
-        };
-        
-        reader.onerror = () => {
-          resetearEstadoCarga("❌ Error de lectura local del archivo.");
-        };
-        
-        reader.readAsDataURL(file);
-        
-      } catch (error) {
-        console.error(error);
-        resetearEstadoCarga("❌ Error de ejecución: " + error.message);
-      }
-    });
-
-    function actualizarProgreso(porcentaje, texto) {
-      uploadProgressBar.style.width = `${porcentaje}%`;
-      uploadPercentage.textContent = `${porcentaje}%`;
-      uploadStatusText.textContent = texto;
-    }
-
-    function resetearEstadoCarga(mensajeError) {
-      showToast(mensajeError, 6000);
-      uploadProgressContainer.classList.add('hidden');
-      uploadBtn.disabled = false;
-      uploadBtn.classList.remove('opacity-50');
-    }
-
-    // ==========================================
-    // CONSUMO DE API CON REINTENTOS (BACKOFF)
-    // ==========================================
-    async function fetchWithRetry(url, options = {}, retries = 5, delay = 1000) {
-      try {
-        const response = await fetch(url, options);
-        if (!response.ok) throw new Error("Fallo de red");
-        return response;
-      } catch (error) {
-        if (retries > 0) {
-          await new Promise(res => setTimeout(res, delay));
-          return fetchWithRetry(url, options, retries - 1, delay * 2);
+        });
+        const secondHeaders = secondResponse.getHeaders();
+        const secondLocation = secondHeaders['Location'] || secondHeaders['location'];
+        if (secondLocation) {
+          location = secondLocation;
         }
-        throw error;
       }
+      return location;
     }
+  } catch (e) {
+    // Si algo falla, retornamos la URL de fallback convencional
+  }
+  return urlUrl;
+}
 
-    // ==========================================
-    // SINCRONIZACIÓN Y RENDERIZADO DE BIBLIOTECA
-    // ==========================================
-    async function cargarBiblioteca() {
-      try {
-        audioListContainer.innerHTML = `
-          <div class="text-center py-12 text-slate-500 text-sm">
-            <div class="animate-pulse-slow font-medium">Sincronizando con Google Drive...</div>
-          </div>
-        `;
-
-        const response = await fetchWithRetry(API_URL);
-        const data = await response.json();
-
-        if (data.success) {
-          listaAudios = data.audios || [];
-          renderizarLista();
-        } else {
-          audioListContainer.innerHTML = `
-            <div class="text-center py-8 text-rose-400 text-sm font-medium">
-              No se pudo cargar la biblioteca: ${data.error || "Error de servidor"}
-            </div>
-          `;
-        }
-      } catch (error) {
-        console.error(error);
-        audioListContainer.innerHTML = `
-          <div class="text-center py-8 text-rose-400 text-sm font-medium">
-            Problemas de conexión con Google Apps Script. Verifica la publicación de tu script.
-          </div>
-        `;
-      }
-    }
-
-    function renderizarLista() {
-      if (listaAudios.length === 0) {
-        audioListContainer.innerHTML = `
-          <div class="text-center py-12 text-slate-500 text-sm">
-            <p class="font-medium">La biblioteca de audios está vacía.</p>
-            <p class="text-[11px] text-slate-600 mt-1">¡Sube tu primer audiolibro (.m4a) arriba!</p>
-          </div>
-        `;
-        return;
-      }
-
-      audioListContainer.innerHTML = '';
-      listaAudios.forEach((audio, idx) => {
-        const isSelected = idx === audioActualIndex;
-        const item = document.createElement('div');
-        item.className = `flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-          isSelected 
-            ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200' 
-            : 'bg-slate-900/40 border-slate-800 hover:border-slate-700/80 text-slate-300'
-        }`;
-        
-        item.innerHTML = `
-          <div class="flex-grow min-w-0 pr-2" onclick="seleccionarAudio(${idx})">
-            <p class="text-xs font-bold truncate">${audio.nombre}</p>
-            <p class="text-[10px] text-slate-500 font-semibold font-mono mt-0.5">ID: ${audio.id}</p>
-          </div>
-          <button onclick="event.stopPropagation(); seleccionarAudio(${idx})" class="w-10 h-10 rounded-full bg-slate-800/80 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all active:scale-90 shadow-md">
-            <svg class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-          </button>
-        `;
-        audioListContainer.appendChild(item);
+/**
+ * 2. MÉTODO POST (doPost)
+ * Soporta carga fragmentada de alta velocidad para audiolibros grandes.
+ */
+function doPost(e) {
+  try {
+    const postData = JSON.parse(e.postData.contents);
+    const action = postData.action;
+    const folder = DriveApp.getFolderById(FOLDER_ID);
+    
+    // --- ACCIÓN A: GUARDAR FRAGMENTO TEMPORAL ---
+    if (action === "upload_chunk") {
+      const uploadId = postData.uploadId;
+      const chunkIndex = postData.chunkIndex;
+      const base64Data = postData.fileData;
+      
+      const tempFileName = `_temp_${uploadId}_${chunkIndex}.tmp`;
+      folder.createFile(tempFileName, base64Data, MimeType.PLAIN_TEXT);
+      
+      return construirRespuestaJson({
+        success: true,
+        message: `Fragmento ${chunkIndex} guardado.`
       });
     }
-
-    // ==========================================
-    // REPRODUCTOR MULTIMEDIA Y SEGUNDO PLANO
-    // ==========================================
-    function seleccionarAudio(idx) {
-      if (idx < 0 || idx >= listaAudios.length) return;
+    
+    // --- ACCIÓN B: UNIR TODOS LOS FRAGMENTOS ---
+    if (action === "merge_chunks") {
+      const uploadId = postData.uploadId;
+      const fileName = postData.fileName;
+      const totalChunks = parseInt(postData.totalChunks);
       
-      audioActualIndex = idx;
-      const audio = listaAudios[idx];
+      let combinedBase64 = "";
       
-      playerTitle.textContent = audio.nombre;
-      renderizarLista();
-      
-      // Mostrar estado cargando de inmediato
-      setPlayerState('loading');
-      
-      // --- CORRECCIÓN CRUCIAL DE BYPASS DE REDIRECCIÓN PARA DISPOSITIVOS MÓVILES (iOS/SAFARI) ---
-      // Forzamos la conexión directa a los servidores cookieless CDN de Google User Content.
-      // Esto previene que Safari aborte la reproducción por redirecciones de seguridad y
-      // activa el soporte nativo de "Byte-Range Requests" (necesario para pausar/adelantar).
-      let streamUrl = audio.url;
-      if (streamUrl.includes('drive.google.com') || streamUrl.includes('docs.google.com')) {
-        streamUrl = `https://drive.usercontent.google.com/download?id=${audio.driveId}&export=download`;
-      }
-      
-      audioPlayer.src = streamUrl;
-      audioPlayer.load();
-      
-      reproducir();
-      configurarMediaSession(audio.nombre);
-    }
-
-    function reproducir() {
-      audioPlayer.play()
-        .then(() => {
-          setPlayerState('playing');
-        })
-        .catch(err => {
-          console.warn("Autoplay bloqueado o cargando recurso...", err);
-          setPlayerState('paused');
-        });
-    }
-
-    function pausar() {
-      audioPlayer.pause();
-      setPlayerState('paused');
-    }
-
-    // Eventos de estado de carga multimedia para alimentar al Botón de Play
-    audioPlayer.addEventListener('loadstart', () => setPlayerState('loading'));
-    audioPlayer.addEventListener('waiting', () => setPlayerState('loading'));
-    audioPlayer.addEventListener('playing', () => setPlayerState('playing'));
-    audioPlayer.addEventListener('pause', () => setPlayerState('paused'));
-    audioPlayer.addEventListener('canplay', () => {
-      if (audioPlayer.paused) {
-        setPlayerState('paused');
-      } else {
-        setPlayerState('playing');
-      }
-    });
-
-    // SISTEMA AVANZADO DE DIAGNÓSTICO DE ERRORES MULTIMEDIA
-    audioPlayer.addEventListener('error', () => {
-      let msg = "Error desconocido al intentar reproducir el audio.";
-      const err = audioPlayer.error;
-      if (err) {
-        switch (err.code) {
-          case 1: // MEDIA_ERR_ABORTED
-            msg = "La carga del archivo de audio fue cancelada por el sistema.";
-            break;
-          case 2: // MEDIA_ERR_NETWORK
-            msg = "Error de red al descargar el audio. Tu conexión Wi-Fi/Datos falló.";
-            break;
-          case 3: // MEDIA_ERR_DECODE
-            msg = "Error al decodificar el archivo. El formato .m4a podría estar corrupto o no ser soportado por este móvil.";
-            break;
-          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
-            msg = "No se pudo acceder al archivo. Verifica que tu carpeta y archivos en Drive estén configurados como públicos ('Cualquier persona con el enlace puede ver').";
-            break;
-        }
-      }
-      showToast("❌ " + msg, 8000);
-      setPlayerState('paused');
-    });
-
-    // Toggle Play/Pausa principal
-    btnPlay.addEventListener('click', () => {
-      if (audioActualIndex === -1) {
-        if (listaAudios.length > 0) {
-          seleccionarAudio(0);
-        } else {
-          showToast("⚠️ No tienes ningún audiolibro en la biblioteca.");
-        }
-        return;
-      }
-      
-      if (audioPlayer.paused) {
-        reproducir();
-      } else {
-        pausar();
-      }
-    });
-
-    // Control de saltos temporales (Segundos)
-    btnBack.addEventListener('click', () => saltarTiempo(-10));
-    btnForward.addEventListener('click', () => saltarTiempo(10));
-
-    function saltarTiempo(segundos) {
-      if (!audioPlayer.src) return;
-      audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.duration || 0, audioPlayer.currentTime + segundos));
-    }
-
-    // Sincronización del Seekbar de reproducción
-    audioPlayer.addEventListener('timeupdate', () => {
-      if (audioPlayer.duration) {
-        const pct = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-        progressBar.value = pct;
-        timeCurrent.textContent = formatearTiempo(audioPlayer.currentTime);
-      }
-    });
-
-    audioPlayer.addEventListener('loadedmetadata', () => {
-      timeDuration.textContent = formatearTiempo(audioPlayer.duration);
-    });
-
-    progressBar.addEventListener('input', (e) => {
-      if (audioPlayer.duration) {
-        const nuevoTiempo = (e.target.value / 100) * audioPlayer.duration;
-        audioPlayer.currentTime = nuevoTiempo;
-      }
-    });
-
-    // Transición automática al finalizar el audiolibro actual
-    audioPlayer.addEventListener('ended', () => {
-      if (audioActualIndex + 1 < listaAudios.length) {
-        seleccionarAudio(audioActualIndex + 1);
-      } else {
-        pausar();
-      }
-    });
-
-    // Helper: Formato de minutos y segundos (MM:SS)
-    function formatearTiempo(segundos) {
-      if (isNaN(segundos)) return "00:00";
-      const mins = Math.floor(segundos / 60);
-      const secs = Math.floor(segundos % 60);
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    // ==========================================
-    // INTEGRACIÓN NATIVA CON SISTEMA OPERATIVO
-    // (Media Session API para Segundo Plano)
-    // ==========================================
-    function configurarMediaSession(titulo) {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: titulo,
-          artist: "Bobba Bookshelf",
-          album: "Audiolibros",
-          artwork: [
-            { src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=512&q=80', sizes: '512x512', type: 'image/jpeg' }
-          ]
-        });
-
-        // Configuración de botones de bloqueo táctil nativo
-        navigator.mediaSession.setActionHandler('play', () => reproducir());
-        navigator.mediaSession.setActionHandler('pause', () => pausar());
-        navigator.mediaSession.setActionHandler('seekbackward', () => saltarTiempo(-10));
-        navigator.mediaSession.setActionHandler('seekforward', () => saltarTiempo(10));
+      for (let i = 0; i < totalChunks; i++) {
+        const tempFileName = `_temp_${uploadId}_${i}.tmp`;
+        const files = folder.getFilesByName(tempFileName);
         
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          if (audioActualIndex > 0) seleccionarAudio(audioActualIndex - 1);
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          if (audioActualIndex + 1 < listaAudios.length) seleccionarAudio(audioActualIndex + 1);
-        });
+        if (files.hasNext()) {
+          const tempFile = files.next();
+          combinedBase64 += tempFile.getBlob().getDataAsString();
+          tempFile.setTrashed(true); // Limpiar espacio temporal
+        } else {
+          throw new Error(`Falta el fragmento temporal número ${i}. Recomienza la subida.`);
+        }
       }
+      
+      const contentType = "audio/mp4"; // Estándar seguro para m4a
+      const decodedData = Utilities.base64Decode(combinedBase64);
+      const blob = Utilities.newBlob(decodedData, contentType, fileName);
+      const finalFile = folder.createFile(blob);
+      
+      // Aplicar permisos globales de lectura para el streaming correcto
+      finalFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      const fileId = finalFile.getId();
+      
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+      const idUnico = "AUD-" + new Date().getTime();
+      sheet.appendRow([idUnico, fileName, fileId]);
+      
+      return construirRespuestaJson({
+        success: true,
+        id: idUnico,
+        nombre: fileName,
+        driveId: fileId,
+        message: "Audio reconstruido correctamente."
+      });
     }
+    
+    // --- ACCIÓN C: COMPATIBILIDAD CON SUBIDAS SIMPLES ---
+    const base64Data = postData.fileData;
+    const fileName = postData.fileName;
+    
+    if (!base64Data || !fileName) {
+      return construirRespuestaJson({ 
+        success: false, 
+        error: "Acción no reconocida en el servidor." 
+      });
+    }
+    
+    const decodedData = Utilities.base64Decode(base64Data);
+    const blob = Utilities.newBlob(decodedData, "audio/mp4", fileName);
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const fileId = file.getId();
+    
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const idUnico = "AUD-" + new Date().getTime();
+    sheet.appendRow([idUnico, fileName, fileId]);
+    
+    return construirRespuestaJson({
+      success: true,
+      id: idUnico,
+      nombre: fileName,
+      driveId: fileId
+    });
+    
+  } catch (error) {
+    return construirRespuestaJson({ 
+      success: false, 
+      error: "Error interno del servidor: " + error.toString() 
+    });
+  }
+}
 
-    // Inicialización del ecosistema
-    refreshBtn.addEventListener('click', cargarBiblioteca);
-    window.onload = function() {
-      cargarBiblioteca();
-    }
-  </script>
-</body>
-</html>
+/**
+ * Emite respuestas con compatibilidad CORS para GitHub Pages.
+ */
+function construirRespuestaJson(objeto) {
+  const jsonString = JSON.stringify(objeto);
+  return ContentService.createTextOutput(jsonString)
+    .setMimeType(ContentService.MimeType.JSON);
+}
