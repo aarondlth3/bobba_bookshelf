@@ -11,17 +11,22 @@
       padding: 15px;
       background: #f4f4f4;
     }
-    h1 { text-align: center; color: #333; }
+    h1 { 
+      text-align: center; 
+      color: #333; 
+      margin-bottom: 5px;
+    }
     .audio-item {
       background: white;
-      padding: 12px;
-      margin: 10px 0;
-      border-radius: 8px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      padding: 15px;
+      margin: 12px 0;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     .audio-item h3 {
-      margin: 0 0 8px 0;
-      font-size: 1.1em;
+      margin: 0 0 10px 0;
+      font-size: 1.15em;
+      color: #222;
     }
     audio {
       width: 100%;
@@ -29,16 +34,19 @@
     }
     .status {
       text-align: center;
-      margin: 10px 0;
+      margin: 15px 0;
       font-weight: bold;
+      padding: 10px;
+      border-radius: 8px;
     }
     button {
-      padding: 10px 15px;
+      padding: 10px 20px;
       background: #1a73e8;
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 6px;
       cursor: pointer;
+      font-size: 16px;
     }
   </style>
 </head>
@@ -49,26 +57,30 @@
   <div id="audioList"></div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxTMcW3VsJWSWRIKm0hQyHvFXa6xpDYQrgTvowdRAsInu1IaGkJ93f1OnoumHFmhGb2FA/exec";
+    // ←←← NUEVA URL ACTUALIZADA ←←←
+    const API_URL = "https://script.google.com/macros/s/AKfycbznfTiNWJKODgvH6vwdKBCXLeEPd3DvNoOnNWSHQQ2SeYqA5EzMm0biPKro7Zyz0xGy0A/exec";
 
     async function cargarAudios() {
       const status = document.getElementById('status');
       const list = document.getElementById('audioList');
       
       try {
-        status.textContent = "Cargando audios desde Drive...";
-        
+        status.textContent = "Cargando audios desde Google Drive...";
+        status.style.background = "#e8f0fe";
+        status.style.color = "#1a73e8";
+
         const response = await fetch(API_URL + '?action=getAudios');
         const data = await response.json();
 
         if (!data.success) {
-          throw new Error(data.error || "Error desconocido");
+          throw new Error(data.error || "Error al obtener los audios");
         }
 
         list.innerHTML = '';
 
         if (data.audios.length === 0) {
-          list.innerHTML = '<p>No hay audios en la carpeta.</p>';
+          list.innerHTML = '<p style="text-align:center; color:#666;">No hay audios en la carpeta todavía.</p>';
+          status.textContent = "No se encontraron audios";
           return;
         }
 
@@ -79,22 +91,29 @@
             <h3>${audio.title}</h3>
             <audio controls preload="metadata">
               <source src="${audio.directLink}" type="audio/mpeg">
-              Tu navegador no soporta reproducción de audio.
+              Tu navegador no soporta audio.
             </audio>
-            <small>Archivo: ${audio.name}</small>
+            <small style="color:#666; display:block; margin-top:5px;">
+              ${audio.name}
+            </small>
           `;
           list.appendChild(div);
         });
 
-        status.textContent = `✅ ${data.count} audios cargados`;
+        status.textContent = `✅ ${data.count} audios cargados correctamente`;
+        status.style.background = "#e6f4ea";
+        status.style.color = "#137333";
 
       } catch (error) {
         console.error(error);
-        status.innerHTML = `❌ Error: ${error.message}<br><button onclick="cargarAudios()">Reintentar</button>`;
+        status.innerHTML = `❌ Error: ${error.message}<br><br>
+                            <button onclick="cargarAudios()">Reintentar</button>`;
+        status.style.background = "#fce8e6";
+        status.style.color = "#c5221f";
       }
     }
 
-    // Cargar al abrir la página
+    // Cargar automáticamente al abrir la página
     window.onload = cargarAudios;
   </script>
 </body>
