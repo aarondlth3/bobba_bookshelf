@@ -3,580 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bobba Bookshelf</title>
-  <!-- Tailwind CSS para un diseño moderno y fluido -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Bobba Bookshelf - Audios</title>
   <style>
-    /* Estilos personalizados para animaciones y scroll suave */
-    @keyframes pulse-slow {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 0.6; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 15px;
+      background: #f4f4f4;
     }
-    .animate-pulse-slow {
-      animation: pulse-slow 3s infinite;
+    h1 { text-align: center; color: #333; }
+    .audio-item {
+      background: white;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    /* Suavizado para la barra de progreso de subida */
-    #upload-progress-bar {
-      transition: width 0.3s ease-out;
+    .audio-item h3 {
+      margin: 0 0 8px 0;
+      font-size: 1.1em;
+    }
+    audio {
+      width: 100%;
+      margin-top: 8px;
+    }
+    .status {
+      text-align: center;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    button {
+      padding: 10px 15px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+<body>
+  <h1>📚 Bobba Bookshelf</h1>
+  <p class="status" id="status">Cargando audios...</p>
 
-  <!-- URL de tu Google Apps Script integrada directamente -->
+  <div id="audioList"></div>
+
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwZ0u1a_WDUBSuqlAOPnYPETMDnkG3wDqsmnpzkCKp0ZwHYFFqc69YVBEWEJ171XChKBQ/exec";
-  </script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxTMcW3VsJWSWRIKm0hQyHvFXa6xpDYQrgTvowdRAsInu1IaGkJ93f1OnoumHFmhGb2FA/exec";
 
-  <!-- CONTENEDOR PRINCIPAL -->
-  <main class="max-w-md w-full mx-auto px-4 py-6 flex-grow flex flex-col justify-between">
-    
-    <!-- ENCABEZADO -->
-    <header class="text-center py-4">
-      <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-        Bobba Bookshelf
-      </h1>
-      <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest font-semibold">Reproductor Personal M4A</p>
-    </header>
-
-    <!-- SECCIÓN DE CARGA (UPLOAD) CON BARRA DE PROGRESO REAL -->
-    <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 mb-6 shadow-xl backdrop-blur-md">
-      <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-3">Subir nuevo audio</h2>
+    async function cargarAudios() {
+      const status = document.getElementById('status');
+      const list = document.getElementById('audioList');
       
-      <div class="space-y-4">
-        <!-- Input de archivo personalizado -->
-        <label id="drop-zone" class="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-4 cursor-pointer transition-all bg-slate-950/40">
-          <svg class="w-8 h-8 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-          </svg>
-          <span id="file-label" class="text-xs text-slate-300 text-center font-medium truncate max-w-[250px]">
-            Seleccionar archivo .m4a
-          </span>
-          <input type="file" id="audio-input" accept=".m4a" class="hidden">
-        </label>
-
-        <!-- PANEL DE PROGRESO DE SUBIDA (Oculto por defecto) -->
-        <div id="upload-progress-container" class="hidden bg-slate-950/80 rounded-xl p-4 border border-slate-800/80 space-y-3">
-          <div class="flex justify-between items-center">
-            <span id="upload-status-text" class="text-xs text-slate-300 font-medium">Preparando archivo...</span>
-            <span id="upload-percentage" class="text-xs font-bold text-indigo-400 font-mono">0%</span>
-          </div>
-          <!-- Contenedor de la barra de progreso -->
-          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-            <div id="upload-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-0 rounded-full"></div>
-          </div>
-          <p id="upload-warning-text" class="text-[10px] text-slate-500 text-center italic hidden animate-pulse-slow">
-            Archivos grandes pueden tardar un minuto más en procesarse en Drive tras llegar al 100%.
-          </p>
-        </div>
-
-        <!-- Botón de subir -->
-        <button id="upload-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200 active:scale-[0.98] flex items-center justify-center gap-2">
-          <span>Subir a Drive</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- LISTA DE AUDIOS -->
-    <section class="flex-grow flex flex-col min-h-[250px] mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider">Mis Libros y Audios</h2>
-        <!-- Botón refrescar -->
-        <button id="refresh-btn" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 bg-slate-900 px-2 py-1 rounded border border-slate-800 active:scale-95 transition-all">
-          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15H16M16 11.5v3.5h3.5"></path></svg>
-          Actualizar
-        </button>
-      </div>
-
-      <!-- Contenedor scrollable de la lista -->
-      <div id="audio-list-container" class="flex-grow overflow-y-auto max-h-[300px] space-y-2 pr-1 custom-scrollbar">
-        <!-- El JS rellenará los audios aquí -->
-        <div class="text-center py-12 text-slate-500 text-sm">
-          <div class="animate-pulse-slow mb-2">Cargando biblioteca de audios...</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- REPRODUCTOR COMPACTO -->
-    <section id="player-card" class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-2xl relative overflow-hidden transition-all duration-300">
-      <!-- Glow decorativo de fondo -->
-      <div class="absolute -top-12 -left-12 w-24 h-24 bg-indigo-500/10 blur-2xl rounded-full"></div>
-      
-      <div class="relative z-10 space-y-4">
-        <!-- Título del audio sonando -->
-        <div class="text-center">
-          <p id="player-title" class="text-sm font-bold text-slate-200 truncate px-2">Ningún audio seleccionado</p>
-          <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Bobba Bookshelf</p>
-        </div>
-
-        <!-- Barra de progreso / Buscador -->
-        <div class="space-y-1">
-          <div class="relative group">
-            <input type="range" id="progress-bar" min="0" max="100" value="0" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500 focus:outline-none">
-          </div>
-          <!-- Tiempos -->
-          <div class="flex justify-between text-[10px] text-slate-400 font-mono">
-            <span id="time-current">00:00</span>
-            <span id="time-duration">00:00</span>
-          </div>
-        </div>
-
-        <!-- CONTROLES -->
-        <div class="flex items-center justify-center gap-6">
-          <!-- Retroceder 10 segundos -->
-          <button id="btn-back" class="text-slate-400 hover:text-white active:scale-95 transition-all p-2 rounded-full hover:bg-slate-800/40" title="Retroceder 10 segundos">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.334 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z"></path>
-            </svg>
-            <span class="block text-[8px] mt-0.5 font-bold text-slate-500">-10s</span>
-          </button>
-
-          <!-- Play / Pausa -->
-          <button id="btn-play" class="w-14 h-14 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all" title="Reproducir / Pausar">
-            <!-- Icono Play por defecto -->
-            <svg id="play-icon" class="w-7 h-7 ml-1" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M8 5v14l11-7z"></path>
-            </svg>
-            <!-- Icono Pausa (oculto) -->
-            <svg id="pause-icon" class="w-7 h-7 hidden" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>
-            </svg>
-          </button>
-
-          <!-- Adelantar 10 segundos -->
-          <button id="btn-forward" class="text-slate-400 hover:text-white active:scale-95 transition-all p-2 rounded-full hover:bg-slate-800/40" title="Adelantar 10 segundos">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 005 8v8a1 1 0 001.6.8l5.334-4zM19.934 12.8a1 1 0 000-1.6l-5.334-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.334-4z"></path>
-            </svg>
-            <span class="block text-[8px] mt-0.5 font-bold text-slate-500">+10s</span>
-          </button>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- ELEMENTO AUDIO INVISIBLE -->
-  <audio id="audio-player" class="hidden" preload="auto"></audio>
-
-  <!-- TOAST DE NOTIFICACIÓN / MODAL DE STATUS -->
-  <div id="status-toast" class="fixed bottom-4 left-4 right-4 bg-slate-900 border border-slate-800 text-slate-200 text-xs py-3 px-4 rounded-xl shadow-2xl flex items-center justify-between translate-y-24 opacity-0 transition-all duration-300 z-50">
-    <span id="toast-message">Procesando...</span>
-    <button onclick="hideToast()" class="text-indigo-400 font-bold ml-2">Cerrar</button>
-  </div>
-
-  <!-- SCRIPT DE COMPORTAMIENTO -->
-  <script>
-    // Variables de Estado
-    let listaAudios = [];
-    let audioActualIndex = -1;
-
-    // Elementos DOM
-    const audioInput = document.getElementById('audio-input');
-    const fileLabel = document.getElementById('file-label');
-    const uploadBtn = document.getElementById('upload-btn');
-    const refreshBtn = document.getElementById('refresh-btn');
-    const audioListContainer = document.getElementById('audio-list-container');
-    const audioPlayer = document.getElementById('audio-player');
-    
-    // Elementos del Progreso de Subida
-    const uploadProgressContainer = document.getElementById('upload-progress-container');
-    const uploadStatusText = document.getElementById('upload-status-text');
-    const uploadPercentage = document.getElementById('upload-percentage');
-    const uploadProgressBar = document.getElementById('upload-progress-bar');
-    const uploadWarningText = document.getElementById('upload-warning-text');
-    
-    const playerCard = document.getElementById('player-card');
-    const playerTitle = document.getElementById('player-title');
-    const progressBar = document.getElementById('progress-bar');
-    const timeCurrent = document.getElementById('time-current');
-    const timeDuration = document.getElementById('time-duration');
-    
-    const btnPlay = document.getElementById('btn-play');
-    const playIcon = document.getElementById('play-icon');
-    const pauseIcon = document.getElementById('pause-icon');
-    const btnBack = document.getElementById('btn-back');
-    const btnForward = document.getElementById('btn-forward');
-    
-    const toast = document.getElementById('status-toast');
-    const toastMsg = document.getElementById('toast-message');
-
-    // ==========================================
-    // NOTIFICACIONES PERSONALIZADAS (SIN ALERTS)
-    // ==========================================
-    let toastTimeout;
-    function showToast(mensaje, duracion = 4000) {
-      clearTimeout(toastTimeout);
-      toastMsg.textContent = mensaje;
-      toast.classList.remove('translate-y-24', 'opacity-0');
-      toast.classList.add('translate-y-0', 'opacity-100');
-      if (duracion > 0) {
-        toastTimeout = setTimeout(hideToast, duracion);
-      }
-    }
-
-    function hideToast() {
-      toast.classList.add('translate-y-24', 'opacity-0');
-      toast.classList.remove('translate-y-0', 'opacity-100');
-    }
-
-    // ==========================================
-    // GESTIÓN DE ARCHIVOS (SUBIDA DETALLADA)
-    // ==========================================
-    audioInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        fileLabel.textContent = file.name;
-        fileLabel.classList.add('text-indigo-400');
-      } else {
-        fileLabel.textContent = "Seleccionar archivo .m4a";
-        fileLabel.classList.remove('text-indigo-400');
-      }
-    });
-
-    uploadBtn.addEventListener('click', async () => {
-      const file = audioInput.files[0];
-      if (!file) {
-        showToast("⚠️ Selecciona primero un archivo .m4a");
-        return;
-      }
-
-      // Deshabilitar botón para evitar clics dobles
-      uploadBtn.disabled = true;
-      uploadBtn.classList.add('opacity-50');
-      
-      // Mostrar y resetear el contenedor de progreso
-      uploadProgressContainer.classList.remove('hidden');
-      actualizarProgreso(0, "Paso 1: Convirtiendo archivo de audio...");
-      uploadWarningText.classList.add('hidden');
-
       try {
-        const reader = new FileReader();
+        status.textContent = "Cargando audios desde Drive...";
         
-        reader.onload = function(event) {
-          actualizarProgreso(5, "Paso 1: Conversión completada. Preparando subida...");
-          
-          const base64Data = event.target.result.split(',')[1];
-          const payload = {
-            fileData: base64Data,
-            fileName: file.name
-          };
-
-          const payloadString = JSON.stringify(payload);
-          
-          // Reemplazamos Fetch por XMLHttpRequest para poder rastrear progreso de carga real
-          const xhr = new XMLHttpRequest();
-          xhr.open('POST', API_URL, true);
-          xhr.setRequestHeader('Content-Type', 'text/plain');
-
-          // Evento que mide el progreso real de la subida
-          xhr.upload.onprogress = function(e) {
-            if (e.lengthComputable) {
-              // Convertimos el rango de subida real del 10% al 90% para dejar margen a la escritura de Google Drive
-              const subidaPorcentaje = Math.round((e.loaded / e.total) * 80) + 10;
-              actualizarProgreso(subidaPorcentaje, `Paso 2: Subiendo archivo al servidor (${subidaPorcentaje-10}%)`);
-              
-              if (subidaPorcentaje >= 90) {
-                actualizarProgreso(95, "Paso 3: Creando archivo en Drive y registrando en Sheets...");
-                uploadWarningText.classList.remove('hidden');
-              }
-            }
-          };
-
-          // Evento que se ejecuta al terminar la llamada del servidor
-          xhr.onload = function() {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const responseData = JSON.parse(xhr.responseText);
-                if (responseData.success) {
-                  actualizarProgreso(100, "¡Subida exitosa!");
-                  showToast("✅ ¡Audio subido y guardado con éxito!");
-                  setTimeout(() => {
-                    uploadProgressContainer.classList.add('hidden');
-                    audioInput.value = '';
-                    fileLabel.textContent = "Seleccionar archivo .m4a";
-                    fileLabel.classList.remove('text-indigo-400');
-                  }, 1500);
-                  cargarBiblioteca(); // Refrescar biblioteca
-                } else {
-                  resetearEstadoCarga("❌ Error del servidor: " + (responseData.error || "Desconocido"));
-                }
-              } catch (e) {
-                resetearEstadoCarga("❌ Error al procesar respuesta del servidor.");
-              }
-            } else {
-              resetearEstadoCarga(`❌ Error de conexión con Google Apps Script (Estado: ${xhr.status})`);
-            }
-          };
-
-          xhr.onerror = function() {
-            resetearEstadoCarga("❌ Falló la conexión de red. Intenta nuevamente.");
-          };
-
-          // Enviar los datos
-          xhr.send(payloadString);
-        };
-
-        reader.onerror = () => {
-          resetearEstadoCarga("❌ Error local al leer el archivo de audio.");
-        };
-
-        // Inicia la conversión del archivo a Base64
-        reader.readAsDataURL(file);
-
-      } catch (error) {
-        console.error(error);
-        resetearEstadoCarga("❌ Ocurrió un error inesperado: " + error.message);
-      }
-    });
-
-    // Función de ayuda para actualizar barra e interfaz
-    function actualizarProgreso(porcentaje, texto) {
-      uploadProgressBar.style.width = `${porcentaje}%`;
-      uploadPercentage.textContent = `${porcentaje}%`;
-      uploadStatusText.textContent = texto;
-    }
-
-    // Restablecer el botón e informar el fallo
-    function resetearEstadoCarga(mensajeError) {
-      showToast(mensajeError, 6000);
-      uploadProgressContainer.classList.add('hidden');
-      uploadBtn.disabled = false;
-      uploadBtn.classList.remove('opacity-50');
-    }
-
-    // ==========================================
-    // CONSUMO DE API (FETCH CON REINTENTOS)
-    // ==========================================
-    async function fetchWithRetry(url, options = {}, retries = 5, delay = 1000) {
-      try {
-        const response = await fetch(url, options);
-        if (!response.ok) throw new Error("Respuesta de red incorrecta");
-        return response;
-      } catch (error) {
-        if (retries > 0) {
-          await new Promise(res => setTimeout(res, delay));
-          return fetchWithRetry(url, options, retries - 1, delay * 2);
-        }
-        throw error;
-      }
-    }
-
-    // ==========================================
-    // CARGAR Y LISTAR AUDIOS
-    // ==========================================
-    async function cargarBiblioteca() {
-      try {
-        audioListContainer.innerHTML = `
-          <div class="text-center py-12 text-slate-500 text-sm">
-            <div class="animate-pulse-slow">Sincronizando con Google Drive...</div>
-          </div>
-        `;
-
-        const response = await fetchWithRetry(API_URL);
+        const response = await fetch(API_URL + '?action=getAudios');
         const data = await response.json();
 
-        if (data.success) {
-          listaAudios = data.audios || [];
-          renderizarLista();
-        } else {
-          audioListContainer.innerHTML = `
-            <div class="text-center py-8 text-rose-400 text-sm">
-              No se pudo cargar la biblioteca: ${data.error || "Error de servidor"}
-            </div>
-          `;
+        if (!data.success) {
+          throw new Error(data.error || "Error desconocido");
         }
+
+        list.innerHTML = '';
+
+        if (data.audios.length === 0) {
+          list.innerHTML = '<p>No hay audios en la carpeta.</p>';
+          return;
+        }
+
+        data.audios.forEach(audio => {
+          const div = document.createElement('div');
+          div.className = 'audio-item';
+          div.innerHTML = `
+            <h3>${audio.title}</h3>
+            <audio controls preload="metadata">
+              <source src="${audio.directLink}" type="audio/mpeg">
+              Tu navegador no soporta reproducción de audio.
+            </audio>
+            <small>Archivo: ${audio.name}</small>
+          `;
+          list.appendChild(div);
+        });
+
+        status.textContent = `✅ ${data.count} audios cargados`;
+
       } catch (error) {
         console.error(error);
-        audioListContainer.innerHTML = `
-          <div class="text-center py-8 text-rose-400 text-sm">
-            Problemas de conexión con la Web App. Verifica tu URL de Apps Script.
-          </div>
-        `;
+        status.innerHTML = `❌ Error: ${error.message}<br><button onclick="cargarAudios()">Reintentar</button>`;
       }
     }
 
-    function renderizarLista() {
-      if (listaAudios.length === 0) {
-        audioListContainer.innerHTML = `
-          <div class="text-center py-12 text-slate-500 text-sm">
-            <p>La biblioteca está vacía.</p>
-            <p class="text-xs text-slate-600 mt-1">¡Sube tu primer archivo .m4a arriba!</p>
-          </div>
-        `;
-        return;
-      }
-
-      audioListContainer.innerHTML = '';
-      listaAudios.forEach((audio, idx) => {
-        const isSelected = idx === audioActualIndex;
-        const item = document.createElement('div');
-        item.className = `flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-          isSelected 
-            ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200' 
-            : 'bg-slate-900/40 border-slate-800 hover:border-slate-700/80 text-slate-300'
-        }`;
-        
-        item.innerHTML = `
-          <div class="flex-grow min-w-0 pr-2" onclick="seleccionarAudio(${idx})">
-            <p class="text-xs font-bold truncate">${audio.nombre}</p>
-            <p class="text-[10px] text-slate-500 font-medium font-mono">ID: ${audio.id}</p>
-          </div>
-          <button onclick="event.stopPropagation(); seleccionarAudio(${idx})" class="w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
-            <svg class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-          </button>
-        `;
-        audioListContainer.appendChild(item);
-      });
-    }
-
-    // ==========================================
-    // LÓGICA DEL REPRODUCTOR Y SEGUNDO PLANO
-    // ==========================================
-    function seleccionarAudio(idx) {
-      if (idx < 0 || idx >= listaAudios.length) return;
-      
-      audioActualIndex = idx;
-      const audio = listaAudios[idx];
-      
-      // Actualizar UI
-      playerTitle.textContent = audio.nombre;
-      renderizarLista();
-      
-      // Pasar URL al reproductor
-      audioPlayer.src = audio.url;
-      audioPlayer.load();
-      
-      // Intentar reproducir inmediatamente
-      reproducir();
-      
-      // Configurar soporte de segundo plano (Media Session API)
-      configurarMediaSession(audio.nombre);
-    }
-
-    function reproducir() {
-      audioPlayer.play()
-        .then(() => {
-          playIcon.classList.add('hidden');
-          pauseIcon.classList.remove('hidden');
-          if ('mediaSession' in navigator) {
-            navigator.mediaSession.playbackState = "playing";
-          }
-        })
-        .catch(err => {
-          console.warn("Autoplay bloqueado. Requiere gesto de usuario: ", err);
-          showToast("ℹ️ Presiona Play para iniciar la reproducción.");
-        });
-    }
-
-    function pausar() {
-      audioPlayer.pause();
-      playIcon.classList.remove('hidden');
-      pauseIcon.classList.add('hidden');
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = "paused";
-      }
-    }
-
-    // Toggle Play/Pausa
-    btnPlay.addEventListener('click', () => {
-      if (audioActualIndex === -1) {
-        if (listaAudios.length > 0) {
-          seleccionarAudio(0);
-        } else {
-          showToast("⚠️ Sube un audio primero");
-        }
-        return;
-      }
-      
-      if (audioPlayer.paused) {
-        reproducir();
-      } else {
-        pausar();
-      }
-    });
-
-    // Saltar ±10 segundos
-    btnBack.addEventListener('click', () => saltarTiempo(-10));
-    btnForward.addEventListener('click', () => saltarTiempo(10));
-
-    function saltarTiempo(segundos) {
-      if (!audioPlayer.src) return;
-      audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.duration || 0, audioPlayer.currentTime + segundos));
-    }
-
-    // Barra de navegación de tiempo (Seekbar)
-    audioPlayer.addEventListener('timeupdate', () => {
-      if (audioPlayer.duration) {
-        const pct = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-        progressBar.value = pct;
-        timeCurrent.textContent = formatearTiempo(audioPlayer.currentTime);
-      }
-    });
-
-    audioPlayer.addEventListener('loadedmetadata', () => {
-      timeDuration.textContent = formatearTiempo(audioPlayer.duration);
-    });
-
-    progressBar.addEventListener('input', (e) => {
-      if (audioPlayer.duration) {
-        const nuevoTiempo = (e.target.value / 100) * audioPlayer.duration;
-        audioPlayer.currentTime = nuevoTiempo;
-      }
-    });
-
-    // Al finalizar el audio, pasar al siguiente si existe
-    audioPlayer.addEventListener('ended', () => {
-      if (audioActualIndex + 1 < listaAudios.length) {
-        seleccionarAudio(audioActualIndex + 1);
-      } else {
-        pausar();
-      }
-    });
-
-    // Utilidad: Dar formato de minutos y segundos
-    function formatearTiempo(segundos) {
-      if (isNaN(segundos)) return "00:00";
-      const mins = Math.floor(segundos / 60);
-      const secs = Math.floor(segundos % 60);
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    // ==========================================
-    // CONFIGURACIÓN DE MEDIA SESSION (BACKGROUND)
-    // ==========================================
-    function configurarMediaSession(titulo) {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: titulo,
-          artist: "Bobba Bookshelf",
-          album: "Mis Audios m4a",
-          artwork: [
-            { src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=512&q=80', sizes: '512x512', type: 'image/jpeg' }
-          ]
-        });
-
-        // Eventos para la pantalla de bloqueo y barra de control nativa
-        navigator.mediaSession.setActionHandler('play', () => reproducir());
-        navigator.mediaSession.setActionHandler('pause', () => pausar());
-        navigator.mediaSession.setActionHandler('seekbackward', () => saltarTiempo(-10));
-        navigator.mediaSession.setActionHandler('seekforward', () => saltarTiempo(10));
-        
-        // Sincronizar anterior y siguiente si hay lista de reproducción
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          if (audioActualIndex > 0) seleccionarAudio(audioActualIndex - 1);
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          if (audioActualIndex + 1 < listaAudios.length) seleccionarAudio(audioActualIndex + 1);
-        });
-      }
-    }
-
-    // Inicializar la app cargando la lista
-    refreshBtn.addEventListener('click', cargarBiblioteca);
-    window.onload = function() {
-      cargarBiblioteca();
-    }
+    // Cargar al abrir la página
+    window.onload = cargarAudios;
   </script>
 </body>
 </html>
