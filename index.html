@@ -14,7 +14,7 @@
     h1 { 
       text-align: center; 
       color: #333; 
-      margin-bottom: 5px;
+      margin-bottom: 10px;
     }
     .audio-item {
       background: white;
@@ -36,7 +36,7 @@
       text-align: center;
       margin: 15px 0;
       font-weight: bold;
-      padding: 10px;
+      padding: 12px;
       border-radius: 8px;
     }
     button {
@@ -48,6 +48,11 @@
       cursor: pointer;
       font-size: 16px;
     }
+    small {
+      color: #666;
+      display: block;
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
@@ -57,8 +62,8 @@
   <div id="audioList"></div>
 
   <script>
-    // ←←← NUEVA URL ACTUALIZADA ←←←
-    const API_URL = "https://script.google.com/macros/s/AKfycbznfTiNWJKODgvH6vwdKBCXLeEPd3DvNoOnNWSHQQ2SeYqA5EzMm0biPKro7Zyz0xGy0A/exec";
+    // NUEVA URL ACTUALIZADA
+    const API_URL = "https://script.google.com/macros/s/AKfycbyda33qmHWXEM9UB4nO3GG0t4n3-Qq5pBTmZqyqEOu6dfIyhMvhJXcD-tvQiKhyyGLdDQ/exec";
 
     async function cargarAudios() {
       const status = document.getElementById('status');
@@ -79,7 +84,7 @@
         list.innerHTML = '';
 
         if (data.audios.length === 0) {
-          list.innerHTML = '<p style="text-align:center; color:#666;">No hay audios en la carpeta todavía.</p>';
+          list.innerHTML = '<p style="text-align:center; color:#666;">No hay audios en la carpeta.</p>';
           status.textContent = "No se encontraron audios";
           return;
         }
@@ -90,12 +95,11 @@
           div.innerHTML = `
             <h3>${audio.title}</h3>
             <audio controls preload="metadata">
+              <source src="${audio.directLink}" type="audio/mp4">
               <source src="${audio.directLink}" type="audio/mpeg">
-              Tu navegador no soporta audio.
+              Tu navegador no soporta reproducción de audio.
             </audio>
-            <small style="color:#666; display:block; margin-top:5px;">
-              ${audio.name}
-            </small>
+            <small>Archivo: ${audio.name}</small>
           `;
           list.appendChild(div);
         });
@@ -113,7 +117,7 @@
       }
     }
 
-    // Cargar automáticamente al abrir la página
+    // Cargar automáticamente
     window.onload = cargarAudios;
   </script>
 </body>
