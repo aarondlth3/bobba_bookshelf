@@ -15,6 +15,10 @@
     .animate-pulse-slow {
       animation: pulse-slow 3s infinite;
     }
+    /* Suavizado para la barra de progreso de subida */
+    #upload-progress-bar {
+      transition: width 0.3s ease-out;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
@@ -35,13 +39,13 @@
       <p class="text-xs text-slate-400 mt-1 uppercase tracking-widest font-semibold">Reproductor Personal M4A</p>
     </header>
 
-    <!-- SECCIÓN DE CARGA (UPLOAD) -->
+    <!-- SECCIÓN DE CARGA (UPLOAD) CON BARRA DE PROGRESO REAL -->
     <section class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 mb-6 shadow-xl backdrop-blur-md">
       <h2 class="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-3">Subir nuevo audio</h2>
       
       <div class="space-y-4">
         <!-- Input de archivo personalizado -->
-        <label class="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-4 cursor-pointer transition-all bg-slate-950/40">
+        <label id="drop-zone" class="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-xl p-4 cursor-pointer transition-all bg-slate-950/40">
           <svg class="w-8 h-8 text-slate-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
           </svg>
@@ -50,6 +54,21 @@
           </span>
           <input type="file" id="audio-input" accept=".m4a" class="hidden">
         </label>
+
+        <!-- PANEL DE PROGRESO DE SUBIDA (Oculto por defecto) -->
+        <div id="upload-progress-container" class="hidden bg-slate-950/80 rounded-xl p-4 border border-slate-800/80 space-y-3">
+          <div class="flex justify-between items-center">
+            <span id="upload-status-text" class="text-xs text-slate-300 font-medium">Preparando archivo...</span>
+            <span id="upload-percentage" class="text-xs font-bold text-indigo-400 font-mono">0%</span>
+          </div>
+          <!-- Contenedor de la barra de progreso -->
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="upload-progress-bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-0 rounded-full"></div>
+          </div>
+          <p id="upload-warning-text" class="text-[10px] text-slate-500 text-center italic hidden animate-pulse-slow">
+            Archivos grandes pueden tardar un minuto más en procesarse en Drive tras llegar al 100%.
+          </p>
+        </div>
 
         <!-- Botón de subir -->
         <button id="upload-btn" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200 active:scale-[0.98] flex items-center justify-center gap-2">
@@ -160,6 +179,13 @@
     const audioListContainer = document.getElementById('audio-list-container');
     const audioPlayer = document.getElementById('audio-player');
     
+    // Elementos del Progreso de Subida
+    const uploadProgressContainer = document.getElementById('upload-progress-container');
+    const uploadStatusText = document.getElementById('upload-status-text');
+    const uploadPercentage = document.getElementById('upload-percentage');
+    const uploadProgressBar = document.getElementById('upload-progress-bar');
+    const uploadWarningText = document.getElementById('upload-warning-text');
+    
     const playerCard = document.getElementById('player-card');
     const playerTitle = document.getElementById('player-title');
     const progressBar = document.getElementById('progress-bar');
@@ -195,7 +221,7 @@
     }
 
     // ==========================================
-    // GESTIÓN DE ARCHIVOS (SUBIDA)
+    // GESTIÓN DE ARCHIVOS (SUBIDA DETALLADA)
     // ==========================================
     audioInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -215,59 +241,112 @@
         return;
       }
 
-      // Deshabilitar botón para evitar múltiples clics
+      // Deshabilitar botón para evitar clics dobles
       uploadBtn.disabled = true;
       uploadBtn.classList.add('opacity-50');
-      showToast("⏳ Convirtiendo archivo y subiendo... No cierres esta pestaña.", 0);
+      
+      // Mostrar y resetear el contenedor de progreso
+      uploadProgressContainer.classList.remove('hidden');
+      actualizarProgreso(0, "Paso 1: Convirtiendo archivo de audio...");
+      uploadWarningText.classList.add('hidden');
 
       try {
         const reader = new FileReader();
-        reader.onload = async function(event) {
+        
+        reader.onload = function(event) {
+          actualizarProgreso(5, "Paso 1: Conversión completada. Preparando subida...");
+          
           const base64Data = event.target.result.split(',')[1];
           const payload = {
             fileData: base64Data,
             fileName: file.name
           };
 
-          // Hacemos la llamada POST con reintentos y backoff exponencial
-          const response = await fetchWithRetry(API_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
+          const payloadString = JSON.stringify(payload);
+          
+          // Reemplazamos Fetch por XMLHttpRequest para poder rastrear progreso de carga real
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', API_URL, true);
+          xhr.setRequestHeader('Content-Type', 'text/plain');
 
-          const data = await response.json();
+          // Evento que mide el progreso real de la subida
+          xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+              // Convertimos el rango de subida real del 10% al 90% para dejar margen a la escritura de Google Drive
+              const subidaPorcentaje = Math.round((e.loaded / e.total) * 80) + 10;
+              actualizarProgreso(subidaPorcentaje, `Paso 2: Subiendo archivo al servidor (${subidaPorcentaje-10}%)`);
+              
+              if (subidaPorcentaje >= 90) {
+                actualizarProgreso(95, "Paso 3: Creando archivo en Drive y registrando en Sheets...");
+                uploadWarningText.classList.remove('hidden');
+              }
+            }
+          };
 
-          if (data.success) {
-            showToast("✅ ¡Audio subido y guardado con éxito!");
-            audioInput.value = '';
-            fileLabel.textContent = "Seleccionar archivo .m4a";
-            fileLabel.classList.remove('text-indigo-400');
-            cargarBiblioteca(); // Refrescar lista de reproducción
-          } else {
-            showToast("❌ Error al subir: " + (data.error || "Desconocido"));
-          }
-          uploadBtn.disabled = false;
-          uploadBtn.classList.remove('opacity-50');
+          // Evento que se ejecuta al terminar la llamada del servidor
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const responseData = JSON.parse(xhr.responseText);
+                if (responseData.success) {
+                  actualizarProgreso(100, "¡Subida exitosa!");
+                  showToast("✅ ¡Audio subido y guardado con éxito!");
+                  setTimeout(() => {
+                    uploadProgressContainer.classList.add('hidden');
+                    audioInput.value = '';
+                    fileLabel.textContent = "Seleccionar archivo .m4a";
+                    fileLabel.classList.remove('text-indigo-400');
+                  }, 1500);
+                  cargarBiblioteca(); // Refrescar biblioteca
+                } else {
+                  resetearEstadoCarga("❌ Error del servidor: " + (responseData.error || "Desconocido"));
+                }
+              } catch (e) {
+                resetearEstadoCarga("❌ Error al procesar respuesta del servidor.");
+              }
+            } else {
+              resetearEstadoCarga(`❌ Error de conexión con Google Apps Script (Estado: ${xhr.status})`);
+            }
+          };
+
+          xhr.onerror = function() {
+            resetearEstadoCarga("❌ Falló la conexión de red. Intenta nuevamente.");
+          };
+
+          // Enviar los datos
+          xhr.send(payloadString);
         };
 
         reader.onerror = () => {
-          showToast("❌ Error al leer el archivo local.");
-          uploadBtn.disabled = false;
-          uploadBtn.classList.remove('opacity-50');
+          resetearEstadoCarga("❌ Error local al leer el archivo de audio.");
         };
 
+        // Inicia la conversión del archivo a Base64
         reader.readAsDataURL(file);
 
       } catch (error) {
         console.error(error);
-        showToast("❌ No se pudo conectar con el servidor: " + error.message);
-        uploadBtn.disabled = false;
-        uploadBtn.classList.remove('opacity-50');
+        resetearEstadoCarga("❌ Ocurrió un error inesperado: " + error.message);
       }
     });
 
+    // Función de ayuda para actualizar barra e interfaz
+    function actualizarProgreso(porcentaje, texto) {
+      uploadProgressBar.style.width = `${porcentaje}%`;
+      uploadPercentage.textContent = `${porcentaje}%`;
+      uploadStatusText.textContent = texto;
+    }
+
+    // Restablecer el botón e informar el fallo
+    function resetearEstadoCarga(mensajeError) {
+      showToast(mensajeError, 6000);
+      uploadProgressContainer.classList.add('hidden');
+      uploadBtn.disabled = false;
+      uploadBtn.classList.remove('opacity-50');
+    }
+
     // ==========================================
-    // CONSUMO DE API (FETCH CON BACKOFF EXPONENCIAL)
+    // CONSUMO DE API (FETCH CON REINTENTOS)
     // ==========================================
     async function fetchWithRetry(url, options = {}, retries = 5, delay = 1000) {
       try {
@@ -341,7 +420,7 @@
         item.innerHTML = `
           <div class="flex-grow min-w-0 pr-2" onclick="seleccionarAudio(${idx})">
             <p class="text-xs font-bold truncate">${audio.nombre}</p>
-            <p class="text-[10px] text-slate-500 font-medium">Libro / Audio</p>
+            <p class="text-[10px] text-slate-500 font-medium font-mono">ID: ${audio.id}</p>
           </div>
           <button onclick="event.stopPropagation(); seleccionarAudio(${idx})" class="w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-all">
             <svg class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
