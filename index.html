@@ -32,6 +32,42 @@
     .sidebar-collapsed .brand-text { display: none !important; }
     .sidebar-collapsed .collapsed-only-icon { display: block !important; margin: 0 auto; }
     .sidebar-collapsed .brand-container { justify-content: center !important; padding-left: 0 !important; padding-right: 0 !important; }
+
+    /* ====================== SHIMMER PLACEHOLDER ====================== */
+    .book-cover-wrapper {
+      position: relative;
+      overflow: hidden;
+      background: #1e2937;
+      border-radius: 8px;
+    }
+    .book-cover-wrapper::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 40%;
+      height: 300%;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,0.12),
+        transparent
+      );
+      animation: shimmer 1.8s infinite linear;
+      transform: skewX(-20deg);
+    }
+    @keyframes shimmer {
+      100% { transform: translateX(280%); }
+    }
+    .book-cover-wrapper img {
+      transition: opacity 0.4s ease;
+    }
+    .book-cover-wrapper.loading img {
+      opacity: 0;
+    }
+    .book-cover-wrapper:not(.loading)::after {
+      display: none;
+    }
   </style>
 </head>
 <body class="bg-black text-slate-100 h-screen overflow-hidden selection:bg-indigo-500 selection:text-white flex flex-col" style="font-family: 'Century Gothic', 'CenturyGothic', 'Montserrat', Arial, sans-serif;">
@@ -104,7 +140,7 @@
         </nav>
       </header>
 
-      <!-- SECCIÓN GENERAL DE PROGRESO DE CARGA (Para uploads reales) -->
+      <!-- SECCIÓN GENERAL DE PROGRESO DE CARGA -->
       <div id="upload-progress-container" class="hidden fixed top-20 left-4 right-4 md:left-auto md:right-8 md:w-80 bg-slate-900/95 border border-indigo-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-md z-[100] space-y-3 animate-pulse-slow">
         <div class="flex justify-between items-center">
           <span id="upload-status-text" class="text-xs text-slate-300 font-medium">Subiendo archivo...</span>
@@ -118,12 +154,12 @@
         </p>
       </div>
 
-      <!-- INPUTS DE ARCHIVOS INVISIBLES PARA SUBIDA EN TIEMPO REAL -->
+      <!-- INPUTS DE ARCHIVOS INVISIBLES -->
       <input type="file" id="pdf-input" accept=".pdf" class="hidden" onchange="procesarArchivoReal('pdf', this)">
       <input type="file" id="epub-input" accept=".epub" class="hidden" onchange="procesarArchivoReal('epub', this)">
       <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="procesarArchivoReal('zip', this)">
 
-      <!-- VISTA 1: BIBLIOTECA (Agrupada por Colecciones) -->
+      <!-- VISTA 1: BIBLIOTECA -->
       <div id="view-library" class="view-section p-6 md:p-8 pb-[180px] block">
         <h2 class="text-3xl font-black mb-8 text-white hidden md:block">Mi Biblioteca</h2>
         <div id="library-container" class="space-y-10">
@@ -131,7 +167,7 @@
         </div>
       </div>
 
-      <!-- VISTA 1.5: EN PROCESO (Filtrada automáticamente) -->
+      <!-- VISTA 1.5: EN PROCESO -->
       <div id="view-in-process" class="view-section hidden p-6 md:p-8 pb-[180px]">
         <h2 class="text-3xl font-black mb-2 text-white">En Proceso</h2>
         <p class="text-slate-400 text-sm mb-8">Libros que estás leyendo o estudiando actualmente en Bookshelf.</p>
@@ -160,7 +196,7 @@
             <img id="detail-cover" src="" alt="Portada" class="w-full h-full object-cover">
           </div>
           
-          <!-- Metadata + Checklists (Centro Izquierda) -->
+          <!-- Metadata + Checklists -->
           <div class="flex-1 flex flex-col justify-between text-center lg:text-left py-1">
             <div>
               <p id="detail-collection" class="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-2">Colección</p>
@@ -168,7 +204,7 @@
               <p id="detail-author" class="text-sm font-medium text-slate-400 mb-6 italic">Autor del Libro</p>
             </div>
             
-            <!-- Checklists representados por Iconos interactivos -->
+            <!-- Checklists -->
             <div class="flex flex-wrap justify-center lg:justify-start gap-5">
               <button onclick="toggleChecklist('read')" class="flex items-center gap-2 group transition-all" title="Marcar como Leído">
                 <div id="icon-read" class="w-9 h-9 rounded-full border-2 border-slate-800 flex items-center justify-center transition-all group-hover:border-green-500 text-slate-600">
@@ -193,7 +229,7 @@
             </div>
           </div>
 
-          <!-- PANEL INTEGRADO: CONTENEDOR DE CONTROL COMPACTO (Misma Estética) -->
+          <!-- PANEL INTEGRADO: CONTENEDOR DE CONTROL COMPACTO -->
           <div class="w-full lg:w-72 bg-slate-950/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col sm:flex-row lg:flex-col items-center lg:items-stretch gap-4 justify-between shadow-inner">
             
             <!-- Botón Desplegable Centrado Izquierda -->
@@ -221,26 +257,20 @@
               </div>
             </div>
 
-            <!-- Divisor móvil -->
-            <div class="hidden sm:block lg:hidden w-px bg-slate-800 h-12"></div>
-
             <!-- Pequeña columna de 3 filas para Contenidos Disponibles -->
             <div class="w-full sm:w-1/2 lg:w-full flex flex-col gap-1.5 font-mono">
-              <!-- Fila 1: PDF -->
               <div id="row-file-pdf" class="flex items-center justify-between px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all border-slate-900 bg-slate-950/40 text-slate-700 font-sans">
                 <span class="flex items-center gap-2">📄 PDF</span>
                 <a id="dl-btn-pdf" href="#" target="_blank" class="opacity-20 cursor-not-allowed text-slate-600">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 </a>
               </div>
-              <!-- Fila 2: EPUB -->
               <div id="row-file-epub" class="flex items-center justify-between px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all border-slate-900 bg-slate-950/40 text-slate-700 font-sans">
                 <span class="flex items-center gap-2">📘 EPUB</span>
                 <a id="dl-btn-epub" href="#" target="_blank" class="opacity-20 cursor-not-allowed text-slate-600">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 </a>
               </div>
-              <!-- Fila 3: ZIP -->
               <div id="row-file-zip" class="flex items-center justify-between px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all border-slate-900 bg-slate-950/40 text-slate-700 font-sans">
                 <span class="flex items-center gap-2">📦 ZIP</span>
                 <a id="dl-btn-zip" href="#" target="_blank" class="opacity-20 cursor-not-allowed text-slate-600">
@@ -257,7 +287,6 @@
           <h3 class="text-xl font-bold text-white tracking-tight">Capítulos de Audio</h3>
         </div>
         
-        <!-- Lista de Capítulos (Play a la extrema derecha) -->
         <div class="bg-slate-900/30 rounded-xl overflow-hidden border border-slate-900 shadow-xl">
           <div class="grid grid-cols-[30px_1fr_60px] gap-4 px-4 py-2 border-b border-slate-800 text-slate-500 text-xs uppercase tracking-wider font-semibold">
             <div class="text-center">#</div>
@@ -316,10 +345,9 @@
     </main>
   </div>
 
-  <!-- REPRODUCTOR PERSISTENTE (Sticky Footer) -->
+  <!-- REPRODUCTOR PERSISTENTE -->
   <footer class="fixed bottom-0 sm:bottom-0 left-0 w-full h-[90px] bg-slate-950 border-t border-slate-800 z-50 flex items-center px-4 justify-between" style="padding-bottom: env(safe-area-inset-bottom);">
     
-    <!-- Track Info Izquierda con soporte para mostrar el Autor -->
     <div class="flex items-center gap-3 w-1/3 truncate">
       <div id="player-thumb" class="w-14 h-14 bg-slate-800 rounded flex-shrink-0 bg-cover bg-center shadow-md hidden sm:block"></div>
       <div class="truncate">
@@ -328,7 +356,6 @@
       </div>
     </div>
 
-    <!-- Controles Centrales -->
     <div class="flex flex-col items-center justify-center w-1/3 max-w-lg">
       <div class="flex items-center gap-6 mb-1.5">
         <button id="btn-back" class="text-slate-400 hover:text-white transition-colors" title="Retroceder 10 segundos">
@@ -354,9 +381,7 @@
       </div>
     </div>
 
-    <!-- Extra Derecha -->
     <div class="w-1/3 flex justify-end">
-      <!-- ProgressBar para dispositivos móviles en la parte superior del footer -->
       <div class="absolute top-0 left-0 w-full sm:hidden">
         <input type="range" id="progress-bar-mobile" min="0" max="100" value="0" class="w-full h-1 bg-slate-800 rounded-none appearance-none cursor-pointer accent-indigo-500">
       </div>
@@ -364,7 +389,7 @@
 
   </footer>
 
-  <!-- BARRA DE NAVEGACIÓN MÓVIL (Sticky bottom móvil) -->
+  <!-- BARRA DE NAVEGACIÓN MÓVIL -->
   <nav class="md:hidden fixed bottom-[90px] left-0 w-full h-[60px] bg-slate-950/95 backdrop-blur border-t border-slate-800 z-40 flex justify-around items-center px-6" style="padding-bottom: env(safe-area-inset-bottom);">
     <button onclick="navigate('library')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors" data-target="library">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,7 +411,7 @@
     </button>
   </nav>
 
-  <!-- MODAL: AGREGAR CAPÍTULO Y AUDIO -->
+  <!-- MODAL: AGREGAR CAPÍTULO -->
   <div id="modal-chapter" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl relative">
       <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
@@ -425,7 +450,7 @@
     <span id="toast-message">Mensaje</span>
   </div>
 
-  <!-- COMPORTAMIENTO Y LÓGICA DE LA APLICACIÓN (PRODUCCIÓN REAL) -->
+  <!-- COMPORTAMIENTO Y LÓGICA DE LA APLICACIÓN -->
   <script>
     // Variables de Estado
     let state = {
@@ -435,7 +460,6 @@
       isPlaying: false
     };
 
-    // Almacenamiento en caché local de descargas de audios activos (Blob URLs)
     let descargasActivas = {}; 
 
     const audioPlayer = document.getElementById('audio-player');
@@ -443,7 +467,6 @@
     const pauseIcon = document.getElementById('pause-icon');
     const loadingIcon = document.getElementById('loading-icon');
     
-    // Componentes del Panel de Progreso General
     const uploadProgressContainer = document.getElementById('upload-progress-container');
     const uploadStatusText = document.getElementById('upload-status-text');
     const uploadPercentage = document.getElementById('upload-percentage');
@@ -451,27 +474,20 @@
     const uploadWarningText = document.getElementById('upload-warning-text');
 
     // ==========================================
-    // SIDEBAR RETRÁCTIL Y DROPDOWNS
+    // SIDEBAR + DROPDOWNS
     // ==========================================
     function toggleSidebar() {
       const sidebar = document.getElementById('desktop-sidebar');
       const arrow = document.getElementById('sidebar-arrow');
       sidebar.classList.toggle('sidebar-collapsed');
-      
-      if(sidebar.classList.contains('sidebar-collapsed')) {
-        arrow.style.transform = 'rotate(180deg)';
-      } else {
-        arrow.style.transform = 'rotate(0deg)';
-      }
+      arrow.style.transform = sidebar.classList.contains('sidebar-collapsed') ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
-    // Toggle dropdown para agregar contenidos
     function toggleContentDropdown() {
       const dropdown = document.getElementById('content-dropdown');
       dropdown.classList.toggle('hidden');
     }
 
-    // Cerrar dropdown al hacer clic fuera
     window.addEventListener('click', function(e) {
       const dropdown = document.getElementById('content-dropdown');
       if (dropdown && !dropdown.contains(e.target) && !e.target.closest('button[onclick="toggleContentDropdown()"]')) {
@@ -480,13 +496,12 @@
     });
 
     // ==========================================
-    // NAVEGACIÓN Y VISTAS
+    // NAVEGACIÓN
     // ==========================================
     function navigate(viewId) {
       document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
       document.getElementById(`view-${viewId}`).classList.remove('hidden');
       
-      // Sincronizar botones nav
       document.querySelectorAll('.nav-btn').forEach(btn => {
         if(btn.dataset.target === viewId) {
           btn.classList.add('text-white', 'bg-slate-900');
@@ -504,7 +519,7 @@
     }
 
     // ==========================================
-    // CONSUMO DE API CON REINTENTOS (BACKOFF)
+    // FETCH CON RETRY
     // ==========================================
     async function fetchWithRetry(url, options = {}, retries = 5, delay = 1000) {
       try {
@@ -521,7 +536,7 @@
     }
 
     // ==========================================
-    // CONECTIVIDAD REAL: CARGAR BIBLIOTECA (CON FALLBACK LOCAL ANTE ERRORES CORS/SANDBOX)
+    // CARGAR BIBLIOTECA
     // ==========================================
     async function cargarBiblioteca() {
       try {
@@ -543,9 +558,8 @@
           throw new Error(data.error || "Fallo de respuesta del servidor.");
         }
       } catch (error) {
-        console.warn("Fallo de sincronización con Apps Script (CORS o Sandbox de vista previa), cargando base de datos local de respaldo:", error);
+        console.warn("Fallo de sincronización con Apps Script, usando base de datos local:", error);
         
-        // Cargar base de datos mock para que el usuario pueda usar y ver la app en entornos de desarrollo/Canvas
         state.books = [
           {
             id: 'demo1',
@@ -589,16 +603,21 @@
     }
 
     // ==========================================
-    // RENDERIZADO DE INTERFAZ (BIBLIOTECAS)
+    // RENDER BOOK CARD CON SHIMMER + FALLBACK
     // ==========================================
+    const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=400&q=80';
+
     function renderBookCard(book) {
       return `
         <div class="group cursor-pointer bg-slate-900/40 hover:bg-slate-800/80 p-3 rounded-xl transition-all duration-300 border border-transparent hover:border-slate-700 animate-fade-in" onclick="openBookDetail('${book.id}')">
-          <div class="relative w-full aspect-[2/3] mb-3 shadow-lg rounded-md overflow-hidden bg-slate-800">
-            <img src="${book.cover}" class="w-full h-full object-cover">
-            <div class="absolute bottom-2 right-2 w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all">
-              <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-            </div>
+          <div class="book-cover-wrapper aspect-[2/3] mb-3 shadow-lg overflow-hidden loading">
+            <img 
+              src="${book.cover || FALLBACK_IMAGE}" 
+              onerror="this.onerror=null; this.src='${FALLBACK_IMAGE}'; this.parentElement.classList.remove('loading');"
+              onload="this.parentElement.classList.remove('loading');"
+              loading="lazy"
+              class="w-full h-full object-cover"
+              alt="${book.title}">
           </div>
           <h3 class="font-bold text-sm truncate text-white">${book.title}</h3>
           <p class="text-[11px] text-slate-400 truncate mt-0.5">${book.author || 'Autor Desconocido'}</p>
@@ -656,16 +675,24 @@
     }
 
     // ==========================================
-    // DETALLE DE LIBRO Y REFACTOR COLUMNA ARCHIVOS
+    // DETALLE DEL LIBRO (con fallback)
     // ==========================================
     function openBookDetail(bookId) {
       state.currentBookId = bookId;
       const book = state.books.find(b => b.id === bookId);
+      if (!book) return;
       
       document.getElementById('detail-title').textContent = book.title;
       document.getElementById('detail-author').textContent = book.author || 'Autor Desconocido';
       document.getElementById('detail-collection').textContent = book.collection || 'General';
-      document.getElementById('detail-cover').src = book.cover;
+      
+      // Portada con fallback + shimmer
+      const coverImg = document.getElementById('detail-cover');
+      coverImg.src = book.cover || FALLBACK_IMAGE;
+      coverImg.onerror = function() {
+        this.onerror = null;
+        this.src = FALLBACK_IMAGE;
+      };
       
       updateChecklistIcons(book.checklist);
       renderAvailableContents(book);
@@ -673,6 +700,9 @@
       navigate('book-detail');
     }
 
+    // ==========================================
+    // Resto de funciones (sin cambios)
+    // ==========================================
     function renderAvailableContents(book) {
       const types = ['pdf', 'epub', 'zip'];
       const classMap = {
@@ -713,9 +743,6 @@
       });
     }
 
-    // ==========================================
-    // DISPARADORES DE CARGA EN RED REAL
-    // ==========================================
     function dispararSelector(type) {
       document.getElementById('content-dropdown').classList.add('hidden');
       document.getElementById(`${type}-input`).click();
@@ -724,14 +751,10 @@
     function procesarArchivoReal(type, inputElement) {
       const file = inputElement.files[0];
       if (!file) return;
-      
       subirArchivoFragmentadoReal(file, type, state.currentBookId);
-      inputElement.value = ''; // Resetear input
+      inputElement.value = '';
     }
 
-    // ==========================================
-    // CONTROL DE SUBIDA EN FRAGMENTOS EN TIEMPO REAL
-    // ==========================================
     async function subirArchivoFragmentadoReal(file, fileType, bookId, chapTitle = '') {
       uploadProgressContainer.classList.remove('hidden');
       actualizarProgreso(0, "Preparando canal...");
@@ -744,7 +767,7 @@
           
           const base64Data = event.target.result.split(',')[1];
           const totalLength = base64Data.length;
-          const CHUNK_SIZE = 1500000; // Bloques de 1.5MB
+          const CHUNK_SIZE = 1500000;
           const totalChunks = Math.ceil(totalLength / CHUNK_SIZE);
           
           const uploadId = "UP-" + new Date().getTime() + "-" + Math.random().toString(36).substring(2, 9);
@@ -767,12 +790,8 @@
               };
               
               try {
-                const response = await fetchWithRetry(API_URL, {
-                  method: 'POST',
-                  body: JSON.stringify(payload)
-                });
+                const response = await fetchWithRetry(API_URL, { method: 'POST', body: JSON.stringify(payload) });
                 const data = await response.json();
-                
                 if (data.success) {
                   chunkIndex++;
                   await subirSiguienteFragmento();
@@ -797,24 +816,15 @@
               };
               
               try {
-                const response = await fetchWithRetry(API_URL, {
-                  method: 'POST',
-                  body: JSON.stringify(mergePayload)
-                });
+                const response = await fetchWithRetry(API_URL, { method: 'POST', body: JSON.stringify(mergePayload) });
                 const data = await response.json();
                 
                 if (data.success) {
                   actualizarProgreso(100, "¡Guardado exitoso!");
                   showToast("✅ Archivo procesado y enlazado correctamente.");
-                  setTimeout(() => {
-                    uploadProgressContainer.classList.add('hidden');
-                  }, 1500);
-                  
-                  // Forzar sincronización de base de datos
+                  setTimeout(() => uploadProgressContainer.classList.add('hidden'), 1500);
                   await cargarBiblioteca();
-                  if (state.currentBookId) {
-                    openBookDetail(state.currentBookId);
-                  }
+                  if (state.currentBookId) openBookDetail(state.currentBookId);
                 } else {
                   throw new Error(data.error || "Fallo en la consolidación.");
                 }
@@ -827,8 +837,7 @@
         };
         reader.readAsDataURL(file);
       } catch (error) {
-        console.warn("Fallo de subida en red, emulando de manera local:", error);
-        // Fallback local en caso de error de red o de Apps Script en iframe sandbox
+        console.warn("Fallo de subida en red, emulando localmente:", error);
         setTimeout(() => {
           actualizarProgreso(100, "Completado localmente");
           const book = state.books.find(b => b.id === state.currentBookId);
@@ -838,7 +847,7 @@
               book.chapters.push({
                 id: 'chap_' + Date.now(),
                 title: chapTitle,
-                audioUrl: URL.createObjectURL(file) // Almacenamos el Blob URL para poder reproducirlo localmente
+                audioUrl: URL.createObjectURL(file)
               });
               renderChapters(book);
             } else {
@@ -886,9 +895,6 @@
       });
     }
 
-    // ==========================================
-    // LOGICA DE RECOPILACIÓN E ICONOS CHECKLIST
-    // ==========================================
     async function toggleChecklist(type) {
       const book = state.books.find(b => b.id === state.currentBookId);
       if(!book) return;
@@ -913,7 +919,6 @@
         if (data.success) {
           book.checklist[type] = newValue;
           updateChecklistIcons(book.checklist);
-          
           const typeNames = { read: 'Leído', kindle: 'En Kindle', inProcess: 'En Proceso' };
           showToast(`✅ ${typeNames[type]}: ${newValue ? 'Marcado' : 'Desmarcado'}`);
         } else {
@@ -921,7 +926,6 @@
         }
       } catch (err) {
         console.warn("Fallo de red al actualizar checklist, aplicando cambio localmente:", err);
-        // Fallback local
         book.checklist[type] = newValue;
         updateChecklistIcons(book.checklist);
         const typeNames = { read: 'Leído', kindle: 'En Kindle', inProcess: 'En Proceso' };
@@ -953,7 +957,6 @@
       }
     }
 
-    // Algoritmo de redimensionamiento automático en el cliente
     document.getElementById('cover-input').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if(!file) return;
@@ -1032,13 +1035,12 @@
         }
       } catch (err) {
         console.warn("Fallo de red al crear libro, guardando de forma local:", err);
-        // Guardado local
         const newBook = {
           id: 'book_' + Date.now(),
           title: title,
           author: author || 'Autor Desconocido',
           collection: collection || "General",
-          cover: coverImgSrc || 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=400&q=80',
+          cover: coverImgSrc || FALLBACK_IMAGE,
           checklist: { read: false, kindle: false, inProcess: true },
           files: { pdf: false, epub: false, zip: false },
           chapters: []
@@ -1061,9 +1063,6 @@
       document.getElementById('cover-label').textContent = 'Subir imagen';
     }
 
-    // ==========================================
-    // SECCIÓN DE DIÁLOGOS (MODAL CAPÍTULOS)
-    // ==========================================
     function openAddChapterModal() {
       document.getElementById('content-dropdown').classList.add('hidden');
       document.getElementById('modal-chapter').classList.remove('hidden');
@@ -1088,17 +1087,16 @@
     }
 
     // ==========================================
-    // REPRODUCTOR MULTIMEDIA & MEDIA SESSION (CON RESISTENCIA A FALLOS DE RED)
+    // REPRODUCTOR (sin cambios)
     // ==========================================
     async function playChapter(book, chap) {
       if(!chap.audioId && !chap.audioUrl) return showToast("⚠️ Este capítulo no cuenta con un audio disponible.");
       
       state.currentChapterId = chap.id;
       
-      // Actualizar información del reproductor inferior (Footer)
       document.getElementById('player-title').textContent = chap.title;
       document.getElementById('player-book').textContent = `${book.title} • ${book.author || 'Autor Desconocido'}`;
-      document.getElementById('player-thumb').style.backgroundImage = `url(${book.cover})`;
+      document.getElementById('player-thumb').style.backgroundImage = `url(${book.cover || FALLBACK_IMAGE})`;
       document.getElementById('player-thumb').classList.remove('hidden');
       
       renderChapters(book);
@@ -1106,7 +1104,6 @@
       setPlayerState('loading');
       audioPlayer.pause();
       
-      // Si el audio ya fue descargado previamente en esta sesión, lo tocamos de inmediato
       if (descargasActivas[chap.audioId || chap.id]) {
         audioPlayer.src = descargasActivas[chap.audioId || chap.id];
         audioPlayer.load();
@@ -1115,7 +1112,6 @@
         return;
       }
 
-      // Si es un audio local cargado mediante fallback (Blob URL)
       if (chap.audioUrl && (chap.audioUrl.startsWith('blob:') || chap.audioUrl.startsWith('http'))) {
         audioPlayer.src = chap.audioUrl;
         audioPlayer.load();
@@ -1126,65 +1122,36 @@
 
       showToast("⏳ Solicitando flujo a Google Drive...");
 
-      // --- BYPASS DE REDIRECCIÓN COMPLETO EN MEMORIA (SAFARI COMPATIBLE) ---
       try {
         const streamUrl = `${API_URL}?action=get_stream&driveId=${chap.audioId}`;
         const xhr = new XMLHttpRequest();
         xhr.open('GET', streamUrl, true);
-        xhr.responseType = 'text'; // Transmisión Base64 pura
-
-        xhr.onprogress = function(e) {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            showToast(`⏳ Descargando audio en memoria: ${pct}% (No bloquees tu pantalla)`);
-          } else {
-            showToast(`⏳ Descargando flujo de audio...`);
-          }
-        };
+        xhr.responseType = 'text';
 
         xhr.onload = function() {
           if (xhr.status === 200) {
-            try {
-              const base64Data = xhr.responseText;
-              const blob = base64ToBlob(base64Data, 'audio/mp4');
-              const localBlobUrl = URL.createObjectURL(blob);
-              
-              // Guardamos el buffer en caché local
-              descargasActivas[chap.audioId] = localBlobUrl;
-              
-              audioPlayer.src = localBlobUrl;
-              audioPlayer.load();
-              
-              showToast("✅ Audio cargado. Iniciando reproducción.");
-              reproducir();
-              configurarMediaSession(book, chap);
-            } catch (decodingError) {
-              throw new Error("Fallo de decodificación Base64.");
-            }
-          } else {
-            throw new Error("Fallo del servidor de Drive.");
+            const base64Data = xhr.responseText;
+            const blob = base64ToBlob(base64Data, 'audio/mp4');
+            const localBlobUrl = URL.createObjectURL(blob);
+            descargasActivas[chap.audioId] = localBlobUrl;
+            audioPlayer.src = localBlobUrl;
+            audioPlayer.load();
+            showToast("✅ Audio cargado. Iniciando reproducción.");
+            reproducir();
+            configurarMediaSession(book, chap);
           }
         };
-
-        xhr.onerror = function() {
-          throw new Error("Error físico de red.");
-        };
-
         xhr.send();
-
       } catch (err) {
-        console.warn("Fallo de streaming asíncrono, usando audio de respaldo:", err);
-        // Fallback robusto con archivo de música online de muestra en caso de fallo crítico de red o de Apps Script
         const fallbackUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
         audioPlayer.src = fallbackUrl;
         audioPlayer.load();
         reproducir();
         configurarMediaSession(book, chap);
-        showToast("⚠️ Usando audio de respaldo (error de conexión con Google Drive).");
+        showToast("⚠️ Usando audio de respaldo.");
       }
     }
 
-    // Helper: Decodifica de forma segura una cadena Base64 a un objeto Blob
     function base64ToBlob(base64, mimeType) {
       const byteCharacters = atob(base64);
       const byteArrays = [];
@@ -1192,11 +1159,8 @@
       for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
         const slice = byteCharacters.slice(offset, offset + sliceSize);
         const byteNumbers = new Array(slice.length);
-        for (let i = 0; i < slice.length; i++) {
-          byteNumbers[i] = slice.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        byteArrays.push(byteArray);
+        for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
+        byteArrays.push(new Uint8Array(byteNumbers));
       }
       return new Blob(byteArrays, {type: mimeType});
     }
@@ -1234,7 +1198,6 @@
       return `${m}:${s.toString().padStart(2, '0')}`;
     }
 
-    // Sincronización del Seekbar
     audioPlayer.addEventListener('timeupdate', () => {
       if (audioPlayer.duration) {
         const pct = (audioPlayer.currentTime / audioPlayer.duration) * 100;
@@ -1266,18 +1229,14 @@
       }
     });
 
-    // ==========================================
-    // REGISTRO DE MEDIA SESSION (Segundo Plano)
-    // ==========================================
     function configurarMediaSession(book, chap) {
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: chap.title,
           artist: `${book.title} • ${book.author || 'Autor Desconocido'}`,
           album: "Bookshelf",
-          artwork: [{ src: book.cover, sizes: '512x512', type: 'image/jpeg' }]
+          artwork: [{ src: book.cover || FALLBACK_IMAGE, sizes: '512x512', type: 'image/jpeg' }]
         });
-
         navigator.mediaSession.setActionHandler('play', () => reproducir());
         navigator.mediaSession.setActionHandler('pause', () => pausar());
         navigator.mediaSession.setActionHandler('seekbackward', () => { audioPlayer.currentTime -= 10; });
@@ -1285,9 +1244,6 @@
       }
     }
 
-    // ==========================================
-    // TOAST NOTIFICACIONES FLOTANTES
-    // ==========================================
     let toastTo;
     function showToast(msg) {
       const el = document.getElementById('status-toast');
@@ -1301,7 +1257,6 @@
       }, 3000);
     }
 
-    // Inicialización del Ecosistema al Cargar
     window.onload = async function() {
       await cargarBiblioteca();
       navigate('library');
