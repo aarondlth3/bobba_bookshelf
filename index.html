@@ -24,7 +24,7 @@
     .sidebar-collapsed .collapsed-only-icon { display: block !important; margin: 0 auto; }
     .sidebar-collapsed .brand-container { justify-content: center !important; }
 
-    /* SHIMMER PLACEHOLDER */
+    /* SHIMMER */
     .book-cover-wrapper {
       position: relative;
       overflow: hidden;
@@ -54,34 +54,60 @@
     const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=400&q=80';
   </script>
 
-  <!-- (El resto del HTML es idéntico al anterior, solo cambio la parte del script) -->
-  <!-- ... [mantengo todo el HTML anterior hasta el <script> final] ... -->
+  <!-- TODO EL HTML ANTERIOR (sidebar, main, footer, modal, etc.) se mantiene igual -->
+  <!-- Solo cambia la parte del <script> final -->
 
   <script>
-    // === NUEVA FUNCIÓN PARA CARGAR PORTADAS DE DRIVE DE FORMA ROBUSTA ===
-    function getRobustCoverUrl(coverId) {
+    // ==========================================
+    // FUNCIÓN ROBUSTA PARA PORTADAS DE DRIVE
+    // ==========================================
+    function getCoverUrl(coverId) {
       if (!coverId) return FALLBACK_IMAGE;
-      
+
+      const baseId = coverId.includes('id=') ? coverId.split('id=')[1] : coverId;
+
       const urls = [
-        `https://lh3.googleusercontent.com/d/${coverId}`,           // más moderna y rápida
-        `https://lh3.googleusercontent.com/d/${coverId}=w800-h1200`, 
-        `https://drive.google.com/thumbnail?id=${coverId}&sz=w800-h1200`,
-        `https://drive.google.com/uc?id=${coverId}&export=view`
+        `https://lh3.googleusercontent.com/d/${baseId}`,
+        `https://lh3.googleusercontent.com/d/${baseId}=w800-h1200`,
+        `https://drive.google.com/thumbnail?id=${baseId}&sz=w800-h1200`,
+        `https://drive.google.com/uc?id=${baseId}&export=view`
       ];
-      
-      return urls[0]; // empezamos con la mejor
+
+      return urls;
     }
 
+    // Carga la imagen intentando varias URLs
+    function loadImageWithFallback(imgElement, coverId) {
+      const urls = getCoverUrl(coverId);
+      let index = 0;
+
+      function tryNextUrl() {
+        if (index >= urls.length) {
+          imgElement.src = FALLBACK_IMAGE;
+          imgElement.parentElement.classList.remove('loading');
+          return;
+        }
+        
+        imgElement.src = urls[index];
+        index++;
+      }
+
+      imgElement.onerror = tryNextUrl;
+      imgElement.onload = () => {
+        imgElement.parentElement.classList.remove('loading');
+      };
+
+      tryNextUrl();
+    }
+
+    // ==========================================
+    // RENDER BOOK CARD
+    // ==========================================
     function renderBookCard(book) {
-      const coverUrl = getRobustCoverUrl(book.cover ? book.cover.split('id=')[1] || book.cover : null);
-      
       return `
         <div class="group cursor-pointer bg-slate-900/40 hover:bg-slate-800/80 p-3 rounded-xl transition-all duration-300 border border-transparent hover:border-slate-700" onclick="openBookDetail('${book.id}')">
           <div class="book-cover-wrapper aspect-[2/3] mb-3 shadow-lg overflow-hidden loading">
             <img 
-              src="${coverUrl}" 
-              onerror="this.onerror=null; this.src='${FALLBACK_IMAGE}'; this.parentElement.classList.remove('loading');"
-              onload="this.parentElement.classList.remove('loading');"
               loading="lazy"
               class="w-full h-full object-cover"
               alt="${book.title}">
@@ -93,6 +119,9 @@
       `;
     }
 
+    // ==========================================
+    // OPEN BOOK DETAIL
+    // ==========================================
     function openBookDetail(bookId) {
       state.currentBookId = bookId;
       const book = state.books.find(b => b.id === bookId);
@@ -103,12 +132,7 @@
       document.getElementById('detail-collection').textContent = book.collection || 'General';
 
       const coverImg = document.getElementById('detail-cover');
-      const coverUrl = getRobustCoverUrl(book.cover ? book.cover.split('id=')[1] || book.cover : null);
-      coverImg.src = coverUrl;
-      coverImg.onerror = function() {
-        this.onerror = null;
-        this.src = FALLBACK_IMAGE;
-      };
+      loadImageWithFallback(coverImg, book.cover);
 
       updateChecklistIcons(book.checklist);
       renderAvailableContents(book);
@@ -116,9 +140,49 @@
       navigate('book-detail');
     }
 
-    // === El resto del script es exactamente el mismo que te di antes ===
-    // (cargarBiblioteca, navigate, subirArchivoFragmentadoReal, reproductor, etc.)
-    // Solo copia y pega el resto desde mi mensaje anterior si lo necesitas.
+    // ==========================================
+    // RENDER LIBRARY (llama a renderBookCard)
+    // ==========================================
+    function renderLibrary() {
+      const container = document.getElementById('library-container');
+      container.innerHTML = '';
+
+      if (state.books.length === 0) {
+        container.innerHTML = `<div class="text-center py-24 text-slate-500">La biblioteca está vacía.</div>`;
+        return;
+      }
+
+      const collections = [...new Set(state.books.map(b => b.collection || 'General'))];
+      const datalist = document.getElementById('collection-list');
+      if (datalist) datalist.innerHTML = collections.map(c => `<option value="${c}">`).join('');
+
+      collections.forEach(col => {
+        const booksInCol = state.books.filter(b => (b.collection || 'General') === col);
+        const section = document.createElement('div');
+        section.className = "mb-8";
+        section.innerHTML = `
+          <h3 class="text-xs font-bold text-slate-400 mb-4 border-b border-slate-900 pb-2 tracking-wider uppercase">${col}</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+            ${booksInCol.map(book => renderBookCard(book)).join('')}
+          </div>
+        `;
+        container.appendChild(section);
+      });
+
+      // Aplicar carga de imágenes después de renderizar
+      setTimeout(() => {
+        document.querySelectorAll('.book-cover-wrapper img').forEach(img => {
+          const bookId = img.closest('[onclick^="openBookDetail"]').getAttribute('onclick').match(/'([^']+)'/)[1];
+          const book = state.books.find(b => b.id === bookId);
+          if (book) loadImageWithFallback(img, book.cover);
+        });
+      }, 100);
+    }
+
+    // ==========================================
+    // El resto del script (cargarBiblioteca, reproductor, etc.) se mantiene igual
+    // Copia desde aquí el resto de tu script anterior (navigate, fetchWithRetry, subirArchivoFragmentadoReal, etc.)
+    // ==========================================
 
     window.onload = async function() {
       await cargarBiblioteca();
