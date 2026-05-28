@@ -134,7 +134,8 @@
       <input type="file" id="zip-input" accept=".zip" class="hidden" onchange="procesarArchivoReal('zip', this)">
 
       <!-- VISTA 1: BIBLIOTECA (Agrupada por Colecciones) -->
-      <div id="view-library" class="view-section p-6 md:p-8 pb-[180px] block">
+      <!-- Aumentado el padding inferior a pb-[200px] para móviles y md:pb-[140px] para escritorio -->
+      <div id="view-library" class="view-section p-6 md:p-8 pb-[200px] md:pb-[140px] block">
         <h2 class="text-3xl font-black mb-8 text-white hidden md:block">Mi Biblioteca</h2>
         <div id="library-container" class="space-y-10">
           <!-- Las colecciones y sus libros se cargan aquí desde JS -->
@@ -142,7 +143,8 @@
       </div>
 
       <!-- VISTA 1.5: EN PROCESO (Filtrada automáticamente) -->
-      <div id="view-in-process" class="view-section hidden p-6 md:p-8 pb-[180px]">
+      <!-- Aumentado el padding inferior a pb-[200px] para móviles y md:pb-[140px] para escritorio -->
+      <div id="view-in-process" class="view-section hidden p-6 md:p-8 pb-[200px] md:pb-[140px]">
         <h2 class="text-3xl font-black mb-2 text-white">En Proceso</h2>
         <p class="text-slate-400 text-sm mb-8">Libros que estás leyendo o estudiando actualmente en Bookshelf.</p>
         <div id="in-process-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
@@ -151,7 +153,8 @@
       </div>
 
       <!-- VISTA 2: DETALLE DEL LIBRO -->
-      <div id="view-book-detail" class="view-section hidden p-6 md:p-8 pb-[180px] max-w-5xl mx-auto">
+      <!-- Aumentado el padding inferior a pb-[200px] para móviles y md:pb-[140px] para escritorio -->
+      <div id="view-book-detail" class="view-section hidden p-6 md:p-8 pb-[200px] md:pb-[140px] max-w-5xl mx-auto">
         
         <!-- Botón Volver Global -->
         <div class="mb-6">
@@ -208,13 +211,14 @@
             
             <!-- Botón Desplegable Centrado Izquierda -->
             <div class="relative w-full sm:w-1/2 lg:w-full flex justify-center items-center h-full">
-              <button onclick="toggleContentDropdown()" class="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md">
+              <button onclick="toggleContentDropdown()" class="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 text-xs font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md z-40">
                 <span>Agregar Contenidos</span>
                 <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
               </button>
               
-              <!-- Dropdown Interno -->
-              <div id="content-dropdown" class="hidden absolute top-full lg:top-auto lg:bottom-full mb-2 left-0 w-full bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50">
+              <!-- Dropdown Interno: Posicionamiento robusto y z-index alto -->
+              <!-- Usamos top-full mt-2 en móviles, y en pantallas grandes lo abrimos hacia arriba si está cerca del borde inferior o hacia abajo dependiendo del layout -->
+              <div id="content-dropdown" class="hidden absolute top-full left-0 mt-2 lg:top-auto lg:bottom-full lg:mb-2 w-full bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-1.5 z-50">
                 <button onclick="dispararSelector('pdf')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-2 transition-colors">
                   <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Subir PDF
                 </button>
@@ -240,7 +244,7 @@
             <div class="hidden sm:block lg:hidden w-px bg-slate-800 h-12"></div>
 
             <!-- Pequeña columna de 3 filas para Contenidos Disponibles -->
-            <div class="w-full sm:w-1/2 lg:w-full flex flex-col gap-1.5 font-mono">
+            <div class="w-full sm:w-1/2 lg:w-full flex flex-col gap-1.5 font-mono relative z-30">
               <!-- Fila 1: PDF -->
               <div id="row-file-pdf" class="flex items-center justify-between px-3 py-1.5 rounded-lg border text-[11px] font-bold transition-all border-slate-900 bg-slate-950/40 text-slate-700 font-sans">
                 <span class="flex items-center gap-2">📄 PDF</span>
@@ -286,7 +290,8 @@
       </div>
 
       <!-- VISTA 3: CREAR LIBRO -->
-      <div id="view-add-book" class="view-section hidden p-6 md:p-8 pb-[180px] max-w-2xl mx-auto">
+      <!-- Aumentado el padding inferior a pb-[200px] para móviles y md:pb-[140px] para escritorio -->
+      <div id="view-add-book" class="view-section hidden p-6 md:p-8 pb-[200px] md:pb-[140px] max-w-2xl mx-auto">
         <h2 class="text-2xl font-bold mb-6 text-white">Crear Nuevo Libro</h2>
         <div class="bg-slate-900 rounded-xl p-6 border border-slate-800 space-y-6">
           
@@ -308,10 +313,11 @@
             </datalist>
           </div>
 
+          <!-- Campo URL (Permalink) -->
           <div>
-            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">Ruta de la Portada (Github / Imgur)</label>
-            <input type="text" id="new-book-cover" placeholder="Ej. covers/portada.jpg o https://..." class="w-full bg-slate-800 text-white border-transparent focus:border-indigo-500 rounded-lg px-4 py-3 outline-none transition-all placeholder:text-slate-500 font-medium border border-slate-700">
-            <p class="text-[10px] text-slate-500 mt-1">Ingresa el nombre del archivo en tu repositorio o un enlace directo. Se mostrará en formato 1:1.</p>
+            <label class="block text-xs font-bold text-slate-400 mb-2 uppercase">URL de la Portada (Permalink Github / Imgur)</label>
+            <input type="text" id="new-book-cover" placeholder="https://..." class="w-full bg-slate-800 text-white border-transparent focus:border-indigo-500 rounded-lg px-4 py-3 outline-none transition-all placeholder:text-slate-500 font-medium border border-slate-700">
+            <p class="text-[10px] text-slate-500 mt-1">Ingresa el permalink directo de tu imagen. Se mostrará en formato 1:1 (cuadrado).</p>
           </div>
 
           <button onclick="createNewBook()" id="btn-save-book" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-full shadow-lg transition-transform active:scale-95">
@@ -372,6 +378,28 @@
 
   </footer>
 
+  <!-- BARRA DE NAVEGACIÓN MÓVIL (Sticky bottom móvil) -->
+  <nav class="md:hidden fixed bottom-[90px] left-0 w-full h-[60px] bg-slate-950/95 backdrop-blur border-t border-slate-800 z-40 flex justify-around items-center px-6" style="padding-bottom: env(safe-area-inset-bottom);">
+    <button onclick="navigate('library')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors" data-target="library">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+      </svg>
+      <span class="text-[10px] font-bold">Biblioteca</span>
+    </button>
+    <button onclick="navigate('in-process')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors" data-target="in-process">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <span class="text-[10px] font-bold">Proceso</span>
+    </button>
+    <button onclick="navigate('add-book')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors" data-target="add-book">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      <span class="text-[10px] font-bold">Crear</span>
+    </button>
+  </nav>
+
   <!-- MODAL: AGREGAR CAPÍTULO Y AUDIO -->
   <div id="modal-chapter" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl relative">
@@ -415,7 +443,7 @@
         <div>
           <label class="block text-xs font-bold text-slate-400 mb-1">Nueva URL de Portada (Permalink)</label>
           <input type="text" id="edit-cover-url" placeholder="https://..." class="w-full bg-slate-800 text-white border-transparent rounded-lg px-3 py-2 outline-none border border-slate-700">
-          <p class="text-[10px] text-slate-500 mt-1">Se recomienda usar permalinks directos (.jpg, .png) o archivos de tu repositorio de GitHub.</p>
+          <p class="text-[10px] text-slate-500 mt-1">Se recomienda usar permalinks directos (.jpg, .png)</p>
         </div>
         
         <button onclick="saveNewCover()" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-full mt-4 shadow-lg transition-transform active:scale-95">
@@ -428,8 +456,8 @@
   <!-- AUDIO INVISIBLE -->
   <audio id="audio-player" class="hidden" preload="auto"></audio>
 
-  <!-- TOAST DE NOTIFICACIONES -->
-  <div id="status-toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-sm font-bold py-2.5 px-6 rounded-full shadow-2xl -translate-y-24 opacity-0 transition-all duration-300 z-[150]">
+  <!-- TOAST DE NOTIFICACIONES (Rediseñado Negro/Celeste minimalista) -->
+  <div id="status-toast" class="fixed top-4 left-1/2 -translate-x-1/2 bg-black border border-slate-800 text-sky-400 text-sm font-medium py-2.5 px-6 rounded shadow-lg -translate-y-24 opacity-0 transition-all duration-300 z-[150]">
     <span id="toast-message">Mensaje</span>
   </div>
 
@@ -445,6 +473,9 @@
 
     let descargasActivas = {}; 
 
+    // URL DEL FALLBACK IMAGE PROPORCIONADO
+    const FALLBACK_COVER = 'https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/d49761a7185188b42dae43050f8d73659cda08df/covers/fallback.png';
+
     const audioPlayer = document.getElementById('audio-player');
     const playIcon = document.getElementById('play-icon');
     const pauseIcon = document.getElementById('pause-icon');
@@ -459,6 +490,7 @@
     // ==========================================
     // SISTEMA DE FORMATEO DE IMÁGENES
     // ==========================================
+    // Valida permalinks o retorna el fallback nativo
     function getCoverUrl(coverValue) {
       if (!coverValue) return FALLBACK_COVER;
       
@@ -474,7 +506,7 @@
         path = path.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
       }
       
-      if (path.startsWith('http')) return path; 
+      if (path.startsWith('http')) return path; // Es un Permalink directo
       
       const cleanPath = path.startsWith('/') ? path.substring(1) : path;
       return `https://cdn.jsdelivr.net/gh/aarondlth3/bobba_bookshelf@main/${cleanPath}`;
@@ -565,20 +597,21 @@
         if (data.success) {
           state.books = data.audios || [];
           renderLibrary();
-          showToast("✅ Biblioteca sincronizada con Google Sheets.");
+          showToast("Biblioteca sincronizada con Google Sheets.");
         } else {
           throw new Error(data.error || "Fallo de respuesta del servidor.");
         }
       } catch (error) {
         console.warn("Cargando base de datos local de respaldo:", error);
         
+        // Mock DB para cuando se edita de manera visual (Fallback)
         state.books = [
           {
             id: 'demo1',
             title: 'El Imperio Final',
             author: 'Brandon Sanderson',
             collection: 'Fantasía',
-            cover: '', 
+            cover: '', // Se llenará con el fallback automático al renderizar
             checklist: { read: false, kindle: true, inProcess: true },
             files: { pdf: false, epub: true, zip: false },
             chapters: [
@@ -591,14 +624,14 @@
             title: 'Hábitos Atómicos',
             author: 'James Clear',
             collection: 'Desarrollo Personal',
-            cover: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=80',
+            cover: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=80', // URL directa
             checklist: { read: true, kindle: false, inProcess: false },
             files: { pdf: true, epub: false, zip: false },
             chapters: []
           }
         ];
         renderLibrary();
-        showToast("⚠️ Usando base de datos local (error de conexión con Google Sheets).");
+        showToast("Usando base de datos local (error de conexión con Google Sheets).");
       }
     }
 
@@ -606,6 +639,7 @@
     // RENDERIZADO DE INTERFAZ (BIBLIOTECAS)
     // ==========================================
     function renderBookCard(book) {
+      // Uso del atributo onerror en la imagen para disparar el fallback si la imagen se rompe
       return `
         <div class="group cursor-pointer bg-slate-900/40 hover:bg-slate-800/80 p-3 rounded-xl transition-all duration-300 border border-transparent hover:border-slate-700 animate-fade-in" onclick="openBookDetail('${book.id}')">
           <div class="relative w-full aspect-square mb-3 shadow-lg rounded-md overflow-hidden bg-slate-800">
@@ -713,7 +747,7 @@
             btn.href = "#";
             btn.onclick = (e) => {
               e.preventDefault();
-              showToast(`📥 Descarga simulada de ${type.toUpperCase()} local.`);
+              showToast(`Descarga simulada de ${type.toUpperCase()} local.`);
             };
           }
         } else {
@@ -739,17 +773,14 @@
       const file = inputElement.files[0];
       if (!file) return;
       
-      const book = state.books.find(b => b.id === state.currentBookId);
-      const bookTitle = book ? book.title : 'Desconocido';
-      
-      subirArchivoFragmentadoReal(file, type, state.currentBookId, '', bookTitle);
+      subirArchivoFragmentadoReal(file, type, state.currentBookId);
       inputElement.value = ''; // Resetear input
     }
 
     // ==========================================
     // CONTROL DE SUBIDA EN FRAGMENTOS EN TIEMPO REAL
     // ==========================================
-    async function subirArchivoFragmentadoReal(file, fileType, bookId, chapTitle = '', bookTitle = '') {
+    async function subirArchivoFragmentadoReal(file, fileType, bookId, chapTitle = '') {
       uploadProgressContainer.classList.remove('hidden');
       actualizarProgreso(0, "Preparando canal...");
       uploadWarningText.classList.add('hidden');
@@ -810,8 +841,7 @@
                 totalChunks: totalChunks,
                 fileType: fileType,
                 bookId: bookId,
-                chapTitle: chapTitle,
-                bookTitle: bookTitle // IMPORTANTE: Se envía el nombre para la carpeta
+                chapTitle: chapTitle
               };
               
               try {
@@ -823,7 +853,7 @@
                 
                 if (data.success) {
                   actualizarProgreso(100, "¡Guardado exitoso!");
-                  showToast("✅ Archivo procesado y enlazado correctamente.");
+                  showToast("Archivo procesado y enlazado correctamente.");
                   setTimeout(() => {
                     uploadProgressContainer.classList.add('hidden');
                   }, 1500);
@@ -864,7 +894,7 @@
               renderAvailableContents(book);
             }
           }
-          showToast("⚠️ Procesado localmente (error de conexión con Google Sheets).");
+          showToast("Procesado localmente (error de conexión con Google Sheets).");
           uploadProgressContainer.classList.add('hidden');
         }, 1000);
       }
@@ -931,7 +961,7 @@
           updateChecklistIcons(book.checklist);
           
           const typeNames = { read: 'Leído', kindle: 'En Kindle', inProcess: 'En Proceso' };
-          showToast(`✅ ${typeNames[type]}: ${newValue ? 'Marcado' : 'Desmarcado'}`);
+          showToast(`${typeNames[type]}: ${newValue ? 'Marcado' : 'Desmarcado'}`);
         } else {
           throw new Error(data.error);
         }
@@ -940,7 +970,7 @@
         book.checklist[type] = newValue;
         updateChecklistIcons(book.checklist);
         const typeNames = { read: 'Leído', kindle: 'En Kindle', inProcess: 'En Proceso' };
-        showToast(`⚠️ (Local) ${typeNames[type]}: ${newValue ? 'Marcado' : 'Desmarcado'}`);
+        showToast(`(Local) ${typeNames[type]}: ${newValue ? 'Marcado' : 'Desmarcado'}`);
       }
     }
 
@@ -968,16 +998,14 @@
       }
     }
 
-    // ==========================================
-    // CREACIÓN Y EDICIÓN DE LIBROS/PORTADAS
-    // ==========================================
     async function createNewBook() {
       const title = document.getElementById('new-book-title').value.trim();
       const author = document.getElementById('new-book-author').value.trim();
       const collection = document.getElementById('new-book-col').value.trim();
+      
       const coverUrlInput = document.getElementById('new-book-cover').value.trim();
       
-      if(!title) return showToast("⚠️ Falta el título del libro");
+      if(!title) return showToast("Falta el título del libro");
       
       const btn = document.getElementById('btn-save-book');
       btn.disabled = true;
@@ -990,7 +1018,7 @@
           title: title,
           author: author,
           collection: collection || "General",
-          cover_id: coverUrlInput // Se manda el ID para base de datos
+          cover_id: coverUrlInput 
         };
 
         const response = await fetchWithRetry(API_URL, {
@@ -1000,15 +1028,16 @@
         const data = await response.json();
 
         if (data.success) {
-          showToast("✅ Libro creado y sincronizado.");
+          showToast("Libro creado y sincronizado.");
           limpiarFormularioLibro();
           await cargarBiblioteca();
           navigate('library');
         } else {
-          showToast("❌ No se pudo crear el libro: " + data.error);
+          showToast("No se pudo crear el libro: " + data.error);
         }
       } catch (err) {
         console.warn("Fallo de red al crear libro, guardando de forma local:", err);
+        // Guardado local (Mock)
         const newBook = {
           id: 'book_' + Date.now(),
           title: title,
@@ -1020,7 +1049,7 @@
           chapters: []
         };
         state.books.push(newBook);
-        showToast("⚠️ Guardado de forma local (error de conexión con Google Sheets).");
+        showToast("Guardado de forma local (error de conexión con Google Sheets).");
         limpiarFormularioLibro();
         navigate('library');
       } finally {
@@ -1036,6 +1065,7 @@
       document.getElementById('new-book-cover').value = '';
     }
 
+    // Funciones de Modal de Edición de Portada
     function openCoverModal() {
       document.getElementById('content-dropdown').classList.add('hidden');
       document.getElementById('modal-cover').classList.remove('hidden');
@@ -1048,7 +1078,7 @@
 
     async function saveNewCover() {
       const newUrl = document.getElementById('edit-cover-url').value.trim();
-      if (!newUrl) return showToast("⚠️ Ingresa un Permalink válido.");
+      if (!newUrl) return showToast("Ingresa un Permalink válido.");
 
       closeCoverModal();
       showToast("Actualizando portada...");
@@ -1072,9 +1102,9 @@
             book.cover = newUrl;
             document.getElementById('detail-cover').src = getCoverUrl(newUrl);
           }
-          showToast("✅ Portada actualizada con éxito.");
+          showToast("Portada actualizada con éxito.");
         } else {
-          showToast("❌ Error al actualizar la portada.");
+          showToast("Error al actualizar la portada.");
         }
       } catch (err) {
         console.warn("Fallo en la red. Actualizando portada de manera local:", err);
@@ -1083,7 +1113,7 @@
           book.cover = newUrl;
           document.getElementById('detail-cover').src = getCoverUrl(newUrl);
         }
-        showToast("⚠️ Portada actualizada localmente.");
+        showToast("Portada actualizada localmente.");
       }
     }
 
@@ -1106,21 +1136,18 @@
       const title = document.getElementById('chap-title').value.trim();
       const file = document.getElementById('chap-audio').files[0];
       
-      if(!title) return showToast("⚠️ Ingresa el nombre del capítulo");
-      if(!file) return showToast("⚠️ Por favor selecciona un archivo de audio (.m4a)");
-      
-      const book = state.books.find(b => b.id === state.currentBookId);
-      const bookTitle = book ? book.title : 'Desconocido';
+      if(!title) return showToast("Ingresa el nombre del capítulo");
+      if(!file) return showToast("Por favor selecciona un archivo de audio (.m4a)");
       
       closeModal();
-      await subirArchivoFragmentadoReal(file, "audio", state.currentBookId, title, bookTitle);
+      await subirArchivoFragmentadoReal(file, "audio", state.currentBookId, title);
     }
 
     // ==========================================
     // REPRODUCTOR MULTIMEDIA & MEDIA SESSION 
     // ==========================================
     async function playChapter(book, chap) {
-      if(!chap.audioId && !chap.audioUrl) return showToast("⚠️ Este capítulo no cuenta con un audio disponible.");
+      if(!chap.audioId && !chap.audioUrl) return showToast("Este capítulo no cuenta con un audio disponible.");
       
       state.currentChapterId = chap.id;
       
@@ -1150,7 +1177,7 @@
         return;
       }
 
-      showToast("⏳ Solicitando flujo a Google Drive...");
+      showToast("Solicitando flujo a Google Drive...");
 
       try {
         const streamUrl = `${API_URL}?action=get_stream&driveId=${chap.audioId}`;
@@ -1161,9 +1188,9 @@
         xhr.onprogress = function(e) {
           if (e.lengthComputable) {
             const pct = Math.round((e.loaded / e.total) * 100);
-            showToast(`⏳ Descargando audio en memoria: ${pct}%`);
+            showToast(`Descargando audio en memoria: ${pct}%`);
           } else {
-            showToast(`⏳ Descargando flujo de audio...`);
+            showToast(`Descargando flujo de audio...`);
           }
         };
 
@@ -1179,7 +1206,7 @@
               audioPlayer.src = localBlobUrl;
               audioPlayer.load();
               
-              showToast("✅ Audio cargado. Iniciando reproducción.");
+              showToast("Audio cargado. Iniciando reproducción.");
               reproducir();
               configurarMediaSession(book, chap);
             } catch (decodingError) {
@@ -1203,7 +1230,7 @@
         audioPlayer.load();
         reproducir();
         configurarMediaSession(book, chap);
-        showToast("⚠️ Usando audio de respaldo (error de conexión con Google Drive).");
+        showToast("Usando audio de respaldo (error de conexión con Google Drive).");
       }
     }
 
