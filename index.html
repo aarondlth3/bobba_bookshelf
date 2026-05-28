@@ -39,8 +39,8 @@
   <!-- URL de tu Google Apps Script integrada directamente -->
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycby6Yuv5yEUIYw8DK6O75sYVPlu2sM9mTO6hXN8j4jsH0VJ1m2CCaPr0Rm-END-6k3hGXQ/exec";
-    // IMAGEN DE RESPALDO (FALLBACK) SOLICITADA EN FORMATO RAW PARA QUE RENDERICE CORRECTAMENTE
-    const FALLBACK_COVER = "https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/0939e3a5889574a44de285e0a7e244b82cd52ca9/covers/fallback.png";
+    // IMAGEN DE RESPALDO (FALLBACK) EN FORMATO RAW PARA QUE RENDERICE CORRECTAMENTE
+    const FALLBACK_COVER = "https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/d49761a7185188b42dae43050f8d73659cda08df/covers/fallback.png";
   </script>
 
   <!-- CONTENEDOR PRINCIPAL SUPERIOR (Sidebar + Contenido) -->
@@ -485,6 +485,11 @@
       }
       
       if (!path) return FALLBACK_COVER;
+      
+      // Convertir URLs de GitHub Blob a Raw automáticamente
+      if (path.includes('github.com') && path.includes('/blob/')) {
+        path = path.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
+      }
       
       if (path.startsWith('http')) return path; // Es un Permalink directo
       
@@ -1001,7 +1006,7 @@
           title: title,
           author: author,
           collection: collection || "General",
-          coverUrl: coverUrlInput // Se manda el URL plano, se debe adaptar el Backend a recibir coverUrl
+          cover_id: coverUrlInput // Mandamos cover_id para que el AppScript lo guarde
         };
 
         const response = await fetchWithRetry(API_URL, {
@@ -1026,7 +1031,7 @@
           title: title,
           author: author || 'Autor Desconocido',
           collection: collection || "General",
-          cover: coverUrlInput || '',
+          cover: coverUrlInput || FALLBACK_COVER,
           checklist: { read: false, kindle: false, inProcess: true },
           files: { pdf: false, epub: false, zip: false },
           chapters: []
@@ -1070,7 +1075,7 @@
         const payload = {
           action: "update_cover",
           bookId: state.currentBookId,
-          coverUrl: newUrl
+          cover_id: newUrl // Mandamos cover_id al servidor
         };
 
         const response = await fetchWithRetry(API_URL, {
