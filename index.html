@@ -1141,77 +1141,34 @@
         return;
       }
 
-      showToast("Solicitando flujo a Google Drive...");
+      showToast("Solicitando enlace seguro a Drive...");
 
       try {
-        const streamUrl = `${API_URL}?action=get_stream&driveId=${chap.audioId}`;
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', streamUrl, true);
-        xhr.responseType = 'text';
+        // En lugar de descargar todo en Base64 (satura memoria en iPhone),
+        // pedimos la URL directa (CDN) resuelta por el servidor.
+        const response = await fetch(`${API_URL}?action=get_stream_url&driveId=${chap.audioId}`);
+        const data = await response.json();
 
-        xhr.onprogress = function(e) {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            showToast(`Descargando audio en memoria: ${pct}%`);
-          } else {
-            showToast(`Descargando flujo de audio...`);
-          }
-        };
-
-        xhr.onload = function() {
-          if (xhr.status === 200) {
-            try {
-              const base64Data = xhr.responseText;
-              const blob = base64ToBlob(base64Data, 'audio/mp4');
-              const localBlobUrl = URL.createObjectURL(blob);
-              
-              descargasActivas[chap.audioId] = localBlobUrl;
-              
-              audioPlayer.src = localBlobUrl;
-              audioPlayer.load();
-              
-              showToast("Audio cargado. Iniciando reproducción.");
-              reproducir();
-              configurarMediaSession(book, chap);
-            } catch (decodingError) {
-              throw new Error("Fallo de decodificación Base64.");
-            }
-          } else {
-            throw new Error("Fallo del servidor de Drive.");
-          }
-        };
-
-        xhr.onerror = function() {
-          throw new Error("Error físico de red.");
-        };
-
-        xhr.send();
-
+        if (data.success && data.url) {
+          descargasActivas[chap.audioId] = data.url; // Guardamos en caché la URL resuelta
+          audioPlayer.src = data.url;
+          audioPlayer.load();
+          
+          showToast("Audio listo. Iniciando reproducción.");
+          reproducir();
+          configurarMediaSession(book, chap);
+        } else {
+          throw new Error("Fallo del servidor al resolver enlace.");
+        }
       } catch (err) {
-        console.warn("Fallo de streaming asíncrono, usando audio de respaldo:", err);
+        console.warn("Fallo de resolución de enlace, usando audio de respaldo:", err);
         const fallbackUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
         audioPlayer.src = fallbackUrl;
         audioPlayer.load();
         reproducir();
         configurarMediaSession(book, chap);
-        showToast("Usando audio de respaldo (error de conexión con Google Drive).");
+        showToast("Usando audio de respaldo (error de red).");
       }
-    }
-
-    function base64ToBlob(base64, mimeType) {
-      const byteCharacters = atob(base64);
-      const byteArrays = [];
-      const sliceSize = 1024;
-      for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-        const slice = byteCharacters.slice(offset, offset + sliceSize);
-        const byteNumbers = new Array(slice.length);
-        for (let i = 0; i < slice.length; i++) {
-          byteNumbers[i] = slice.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        byteArrays.push(byteArray);
-      }
-      return new Blob(byteArrays, {type: mimeType});
     }
 
     function reproducir() {
