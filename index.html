@@ -159,6 +159,7 @@
           
           <!-- Portada (1:1 Aspect Ratio) -->
           <div class="w-48 h-48 lg:w-56 lg:h-56 flex-shrink-0 shadow-2xl shadow-black rounded-md overflow-hidden border border-slate-800 bg-slate-950">
+            <!-- NOTA: Añadido onerror para usar fallback image si falla el permalink -->
             <img id="detail-cover" src="" alt="Portada" onerror="this.onerror=null; this.src=window.FALLBACK_COVER;" class="w-full h-full object-cover">
           </div>
           
@@ -365,6 +366,28 @@
 
   </footer>
 
+  <!-- BARRA DE NAVEGACIÓN MÓVIL (Sticky bottom móvil) -->
+  <nav class="md:hidden fixed bottom-[90px] left-0 w-full h-[60px] bg-slate-950/95 backdrop-blur border-t border-slate-800 z-40 flex justify-around items-center px-6" style="padding-bottom: env(safe-area-inset-bottom);">
+    <button onclick="navigate('library')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors" data-target="library">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+      </svg>
+      <span class="text-[10px] font-bold">Biblioteca</span>
+    </button>
+    <button onclick="navigate('in-process')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors" data-target="in-process">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <span class="text-[10px] font-bold">Proceso</span>
+    </button>
+    <button onclick="navigate('add-book')" class="nav-btn flex flex-col items-center gap-1 text-slate-400 transition-colors" data-target="add-book">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+      </svg>
+      <span class="text-[10px] font-bold">Crear</span>
+    </button>
+  </nav>
+
   <!-- MODAL: AGREGAR CAPÍTULO Y AUDIO -->
   <div id="modal-chapter" class="fixed inset-0 bg-black/80 z-[100] hidden flex items-center justify-center p-4 backdrop-blur-sm">
     <div class="bg-slate-900 w-full max-w-md rounded-2xl border border-slate-800 p-6 shadow-2xl relative">
@@ -437,7 +460,9 @@
       books: [],
       currentBookId: null,
       currentChapterId: null,
-      isPlaying: false
+      isPlaying: false,
+      playSessionId: null,
+      isDownloading: false // Candado para forzar el spinner de carga
     };
 
     let descargasActivas = {}; 
@@ -447,6 +472,43 @@
     const pauseIcon = document.getElementById('pause-icon');
     const loadingIcon = document.getElementById('loading-icon');
     
+    // ==========================================
+    // SEÑALES NATIVAS DEL REPRODUCTOR AUDIO
+    // ==========================================
+    // Evitamos que el "audio dummy" de Safari altere los iconos
+    audioPlayer.addEventListener('loadstart', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return;
+      setPlayerState('loading');
+    });
+    audioPlayer.addEventListener('canplay', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return;
+      if(!audioPlayer.paused) setPlayerState('playing');
+      else setPlayerState('paused');
+    });
+    audioPlayer.addEventListener('playing', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return;
+      setPlayerState('playing');
+    });
+    audioPlayer.addEventListener('pause', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return;
+      setPlayerState('paused');
+    });
+    audioPlayer.addEventListener('waiting', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return;
+      setPlayerState('loading');
+    });
+    
+    // MEJORA: Extracción detallada del error de audio para evitar el objeto 'isTrusted' en consola.
+    audioPlayer.addEventListener('error', (e) => {
+      let errMsg = "Desconocido";
+      if (audioPlayer.error) {
+          errMsg = `Código ${audioPlayer.error.code}: ${audioPlayer.error.message || 'Sin detalles adicionales'}`;
+      }
+      console.error("Error del reproductor de audio:", errMsg, e);
+      setPlayerState('paused');
+      showToast("Error de acceso al archivo en Google Drive.");
+    });
+
     const uploadProgressContainer = document.getElementById('upload-progress-container');
     const uploadStatusText = document.getElementById('upload-status-text');
     const uploadPercentage = document.getElementById('upload-percentage');
@@ -1108,12 +1170,14 @@
     }
 
     // ==========================================
-    // REPRODUCTOR MULTIMEDIA & MEDIA SESSION 
+    // REPRODUCTOR MULTIMEDIA & MEDIA SESSION (OPTIMIZADO PARA SAFARI IOS)
     // ==========================================
     async function playChapter(book, chap) {
       if(!chap.audioId && !chap.audioUrl) return showToast("Este capítulo no cuenta con un audio disponible.");
       
       state.currentChapterId = chap.id;
+      const currentSession = Symbol();
+      state.playSessionId = currentSession;
       
       document.getElementById('player-title').textContent = chap.title;
       document.getElementById('player-book').textContent = `${book.title} • ${book.author || 'Autor Desconocido'}`;
@@ -1122,8 +1186,11 @@
       
       renderChapters(book);
 
-      setPlayerState('loading');
-      audioPlayer.pause();
+      // Desbloqueo síncrono del motor de audio de iOS Safari (Anti-Autoplay Block)
+      audioPlayer.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+      audioPlayer.play().then(() => {
+          audioPlayer.pause();
+      }).catch(() => {});
       
       if (descargasActivas[chap.audioId || chap.id]) {
         audioPlayer.src = descargasActivas[chap.audioId || chap.id];
@@ -1141,46 +1208,80 @@
         return;
       }
 
-      showToast("Solicitando enlace seguro a Drive...");
+      // Activamos el candado de descarga para congelar el spinner
+      state.isDownloading = true;
+      setPlayerState('loading');
+      showToast("Descargando audio seguro desde la nube (puede demorar unos segundos)...");
 
       try {
-        // En lugar de descargar todo en Base64 (satura memoria en iPhone),
-        // pedimos la URL directa (CDN) resuelta por el servidor.
-        const response = await fetch(`${API_URL}?action=get_stream_url&driveId=${chap.audioId}`);
-        const data = await response.json();
-
-        if (data.success && data.url) {
-          descargasActivas[chap.audioId] = data.url; // Guardamos en caché la URL resuelta
-          audioPlayer.src = data.url;
-          audioPlayer.load();
-          
-          showToast("Audio listo. Iniciando reproducción.");
-          reproducir();
-          configurarMediaSession(book, chap);
-        } else {
-          throw new Error("Fallo del servidor al resolver enlace.");
+        // En lugar de un enlace crudo de Drive (que devuelve Error de Formato HTML por bloqueo de cookies en Safari),
+        // utilizamos el proxy de Apps Script para obtener los bytes puros en Base64.
+        const streamUrl = `${API_URL}?action=get_stream&driveId=${chap.audioId}`;
+        const response = await fetch(streamUrl);
+        
+        if (!response.ok) throw new Error("Fallo al conectar con el servidor proxy.");
+        const base64Data = await response.text();
+        
+        // Abortar si el usuario cambió de capítulo durante la descarga
+        if (state.playSessionId !== currentSession) {
+          state.isDownloading = false;
+          return;
         }
+        
+        // Si el servidor de Google lanza error de cuota devuelve un HTML en vez de Base64
+        if (base64Data.trim().startsWith('<')) throw new Error("El servidor devolvió un error HTML en lugar del audio.");
+        
+        showToast("Optimizando decodificación en memoria...");
+        
+        // Decodificación NATIVA súper rápida con fetch. Evita el congelamiento (RAM spike) que sucedía en los iPhone.
+        const mediaResponse = await fetch(`data:audio/mp4;base64,${base64Data.trim()}`);
+        const blob = await mediaResponse.blob();
+        const localBlobUrl = URL.createObjectURL(blob);
+        
+        // Abortar de nuevo por seguridad
+        if (state.playSessionId !== currentSession) {
+          state.isDownloading = false;
+          return;
+        }
+        
+        descargasActivas[chap.audioId] = localBlobUrl;
+        audioPlayer.src = localBlobUrl;
+        audioPlayer.load();
+        
+        // Liberamos el candado justo cuando el audio está listo
+        state.isDownloading = false;
+        showToast("Audio listo. Iniciando reproducción.");
+        reproducir();
+        configurarMediaSession(book, chap);
+        
       } catch (err) {
-        console.warn("Fallo de resolución de enlace, usando audio de respaldo:", err);
+        state.isDownloading = false;
+        if (state.playSessionId !== currentSession) return;
+        console.warn("Fallo de streaming asíncrono, usando audio de respaldo:", err);
         const fallbackUrl = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
         audioPlayer.src = fallbackUrl;
         audioPlayer.load();
         reproducir();
         configurarMediaSession(book, chap);
-        showToast("Usando audio de respaldo (error de red).");
+        showToast("Usando audio de respaldo (error de red o formato).");
       }
     }
 
     function reproducir() {
-      audioPlayer.play().then(() => setPlayerState('playing')).catch(() => setPlayerState('paused'));
+      audioPlayer.play().catch(e => {
+        console.error("Error al intentar reproducir:", e);
+        showToast("No se pudo iniciar el audio.");
+      });
     }
     
     function pausar() {
       audioPlayer.pause();
-      setPlayerState('paused');
     }
 
     function setPlayerState(status) {
+      // Candado de estado: Impide quitar el ícono de carga si seguimos descargando de la nube
+      if (state.isDownloading && status !== 'loading') return;
+      
       playIcon.classList.add('hidden');
       pauseIcon.classList.add('hidden');
       loadingIcon.classList.add('hidden');
@@ -1204,7 +1305,10 @@
       return `${m}:${s.toString().padStart(2, '0')}`;
     }
 
+    // Sincronización del Seekbar
     audioPlayer.addEventListener('timeupdate', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return; // Ignorar el dummy de Safari
+      
       if (audioPlayer.duration) {
         const pct = (audioPlayer.currentTime / audioPlayer.duration) * 100;
         document.getElementById('progress-bar').value = pct;
@@ -1214,6 +1318,7 @@
     });
 
     audioPlayer.addEventListener('loadedmetadata', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return; // Ignorar el dummy de Safari
       document.getElementById('time-duration').textContent = formatTime(audioPlayer.duration);
     });
 
@@ -1224,6 +1329,8 @@
     document.getElementById('progress-bar-mobile').addEventListener('input', seek);
 
     audioPlayer.addEventListener('ended', () => {
+      if (audioPlayer.src && audioPlayer.src.includes('UklGRig')) return; // Ignorar el dummy de Safari
+      
       const book = state.books.find(b => b.id === state.currentBookId);
       if(book && book.chapters) {
         const idx = book.chapters.findIndex(c => c.id === state.currentChapterId);
