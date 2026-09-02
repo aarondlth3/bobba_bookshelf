@@ -415,7 +415,7 @@
         };
 
         const ProjectFormModal = ({ isOpen, onClose, initialData, onSave, isSaving, allPublications }) => {
-            const [formData, setFormData] = useState({ title: '', description: '', publication_ids: [] });
+            const [formData, setFormData] = useState({ title: '', description: '', tags: '', publication_ids: [] });
             const [bookSearch, setBookSearch] = useState('');
             
             useEffect(() => {
@@ -424,10 +424,11 @@
                         setFormData({
                             title: initialData.title || '',
                             description: initialData.description || '',
+                            tags: initialData.tags || '',
                             publication_ids: initialData.publication_ids ? initialData.publication_ids.split(',').filter(Boolean) : []
                         });
                     } else {
-                        setFormData({ title: '', description: '', publication_ids: [] });
+                        setFormData({ title: '', description: '', tags: '', publication_ids: [] });
                     }
                     setBookSearch('');
                 }
@@ -465,12 +466,16 @@
             return (
                 <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Proyecto" : "Crear Proyecto"} maxWidth="max-w-4xl" zIndex="z-[60]">
                     <form onSubmit={handleSubmit} className="p-6 flex flex-col h-[80vh]">
-                        <div className="space-y-4 mb-6 shrink-0">
-                            <div>
+                        <div className="space-y-4 mb-6 shrink-0 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nombre del Proyecto / Colección *</label>
                                 <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: Bibliografía Semestre 2027-1" />
                             </div>
-                            <div>
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Etiquetas (Opcional)</label>
+                                <ChipInput icon="ph-tag" value={formData.tags} onChange={val => setFormData({...formData, tags: val})} placeholder="Ej: Universidad, Investigación..." />
+                            </div>
+                            <div className="md:col-span-2">
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Descripción</label>
                                 <textarea rows="2" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none"></textarea>
                             </div>
@@ -667,6 +672,7 @@
         const App = () => {
             // Estados principales
             const [view, setView] = useState('library'); // 'library' | 'projects'
+            const [projectTab, setProjectTab] = useState('active'); // 'active' | 'archived'
             const [data, setData] = useState({ publications: [], versions: [], materials: [], projects: [] });
             const [isLoading, setIsLoading] = useState(true);
             const showToast = useToast();
@@ -748,9 +754,31 @@
                     const action = payload.project_id ? 'updateProject' : 'createProject';
                     await apiCall(action, { data: payload });
                     showToast("Proyecto guardado", "success");
+                    
+                    // Si el proyecto estaba activo, recargar sus datos para actualizar la vista
+                    if (activeProject && payload.project_id === activeProject.project_id) {
+                         const updatedProject = { ...activeProject, ...payload };
+                         setActiveProject(updatedProject);
+                    }
+                    
                     setProjectForm({ open: false, data: null, saving: false });
                     fetchData();
                 } catch(e) { showToast(e.message, 'error'); setProjectForm(prev => ({...prev, saving: false})); }
+            };
+
+            const handleToggleArchiveProject = async (project) => {
+                const newStatus = project.status === 'archived' ? 'active' : 'archived';
+                const actionText = newStatus === 'archived' ? 'archivar' : 'desarchivar';
+                
+                if(!confirm(`¿Estás seguro de ${actionText} este proyecto?`)) return;
+                
+                try {
+                    // Cierre optimista
+                    setActiveProject(null); 
+                    await apiCall('updateProject', { data: { project_id: project.project_id, status: newStatus } });
+                    showToast(`Proyecto ${newStatus === 'archived' ? 'archivado' : 'restaurado'}`, "success");
+                    fetchData();
+                } catch(e) { showToast(e.message, 'error'); }
             };
 
             const handleDeleteProject = async (id) => {
@@ -788,9 +816,15 @@
             // --- Filtrado Inteligente ---
             const allAvailableTags = useMemo(() => {
                 const tagSet = new Set();
-                data.publications.forEach(p => { parseStringArray(p.tags).forEach(t => tagSet.add(t)); });
+                
+                if (view === 'library' || activeProject) {
+                     data.publications.forEach(p => { parseStringArray(p.tags).forEach(t => tagSet.add(t)); });
+                } else if (view === 'projects') {
+                     data.projects.forEach(p => { parseStringArray(p.tags).forEach(t => tagSet.add(t)); });
+                }
+                
                 return Array.from(tagSet).sort();
-            }, [data.publications]);
+            }, [data.publications, data.projects, view, activeProject]);
 
             const filteredPublications = useMemo(() => {
                 let list = data.publications;
@@ -817,7 +851,29 @@
 
                 return list;
             }, [data.publications, search, selectedTags, activeProject]);
+            
+            const filteredProjects = useMemo(() => {
+                let list = data.projects;
+                
+                // Filtrar por estado (activo vs archivado)
+                const targetStatus = projectTab === 'archived' ? 'archived' : 'active';
+                list = list.filter(p => (p.status || 'active') === targetStatus);
 
+                // Filtro por Búsqueda (Título o Descripción)
+                if (search.trim()) {
+                    const q = search.toLowerCase();
+                    list = list.filter(p => (p.title||'').toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q));
+                }
+
+                // Filtro por Tags 
+                if (selectedTags.length > 0) {
+                    list = list.filter(p => {
+                        const pTags = parseStringArray(p.tags);
+                        return selectedTags.every(st => pTags.includes(st));
+                    });
+                }
+                return list;
+            }, [data.projects, search, selectedTags, projectTab]);
 
             return (
                 <>
@@ -825,13 +881,13 @@
                     <header className="bg-white border-b border-slate-200 shrink-0 z-20 relative shadow-sm">
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-8">
-                                <div className="flex items-center gap-3 cursor-pointer" onClick={() => {setView('library'); setActiveProject(null);}}>
+                                <div className="flex items-center gap-3 cursor-pointer" onClick={() => {setView('library'); setActiveProject(null); setSearch(''); setSelectedTags([]);}}>
                                     <img src="https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/07297969d12577f03fab52d59711c7cc3000bd1b/images/bookshelf_img.png" alt="Logo" className="h-9 w-auto object-contain drop-shadow-sm" />
                                     <span className="font-bold text-xl text-slate-800 tracking-tight hidden sm:block">📚</span>
                                 </div>
                                 <nav className="hidden md:flex gap-6">
-                                    <button onClick={() => {setView('library'); setActiveProject(null);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'library' && !activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-books"></i> Mi Biblioteca</button>
-                                    <button onClick={() => {setView('projects'); setActiveProject(null);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'projects' || activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-folders"></i> Colecciones</button>
+                                    <button onClick={() => {setView('library'); setActiveProject(null); setSearch(''); setSelectedTags([]);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'library' && !activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-books"></i> Biblioteca</button>
+                                    <button onClick={() => {setView('projects'); setActiveProject(null); setSearch(''); setSelectedTags([]);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'projects' || activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-folders"></i> Proyectos</button>
                                 </nav>
                             </div>
                             <div className="flex items-center gap-3">
@@ -869,12 +925,21 @@
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <button onClick={() => { setActiveProject(null); setView('projects'); }} className="text-slate-400 hover:text-brand-600 text-sm font-medium flex items-center gap-1 mb-2 transition-colors"><i className="ph ph-arrow-left"></i> Volver a proyectos</button>
-                                                    <h2 className="text-3xl font-black text-slate-900 mb-1">{activeProject.title}</h2>
+                                                    <div className="flex items-center gap-3 mb-1">
+                                                        <h2 className="text-3xl font-black text-slate-900">{activeProject.title}</h2>
+                                                        {activeProject.status === 'archived' && (
+                                                            <span className="px-2.5 py-1 bg-slate-200 text-slate-600 text-xs font-bold rounded-md flex items-center gap-1"><i className="ph ph-archive"></i> Archivado</span>
+                                                        )}
+                                                    </div>
                                                     {activeProject.description && <p className="text-slate-500 max-w-2xl">{activeProject.description}</p>}
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => setProjectForm({ open: true, data: activeProject, saving: false })} className="p-2 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"><i className="ph ph-pencil-simple text-lg"></i></button>
-                                                    <button onClick={() => handleDeleteProject(activeProject.project_id)} className="p-2 text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors"><i className="ph ph-trash text-lg"></i></button>
+                                                    <button onClick={() => handleToggleArchiveProject(activeProject)} className="px-3 py-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-200 rounded-lg transition-colors font-medium text-sm flex items-center gap-2">
+                                                        <i className={`ph ${activeProject.status === 'archived' ? 'ph-arrow-u-up-left' : 'ph-archive'} text-lg`}></i> 
+                                                        {activeProject.status === 'archived' ? 'Restaurar' : 'Archivar'}
+                                                    </button>
+                                                    <button onClick={() => setProjectForm({ open: true, data: activeProject, saving: false })} className="p-2 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors" title="Editar"><i className="ph ph-pencil-simple text-lg"></i></button>
+                                                    <button onClick={() => handleDeleteProject(activeProject.project_id)} className="p-2 text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i className="ph ph-trash text-lg"></i></button>
                                                 </div>
                                             </div>
                                         </div>
@@ -887,7 +952,7 @@
                                             <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por título o autor..." className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow shadow-sm font-medium" />
                                         </div>
                                         <button onClick={() => setShowTags(!showTags)} className={`px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all border shadow-sm ${showTags ? 'bg-brand-500 text-slate-900 border-brand-600' : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}>
-                                            <i className="ph ph-compass text-xl"></i> Explorar
+                                            <i className="ph ph-funnel text-xl"></i> Filtrar
                                         </button>
                                     </div>
 
@@ -960,38 +1025,96 @@
                             {/* VISTA: PROYECTOS (Listado) */}
                             {view === 'projects' && !activeProject && (
                                 <div className="flex-1">
-                                    <div className="flex justify-between items-center mb-8">
+                                    <div className="flex justify-between items-center mb-6">
                                         <div>
-                                            <h2 className="text-3xl font-black text-slate-900 mb-2">Proyectos & Colecciones</h2>
-                                            <p className="text-slate-500 font-medium">Agrupa tu bibliografía por semestres, investigaciones o temáticas.</p>
+                                            <h2 className="text-3xl font-black text-slate-900 mb-2">Proyectos</h2>
+                                            <p className="text-slate-500 font-medium">Agrupa tu bibliografía por colecciones.</p>
                                         </div>
                                     </div>
+                                    
+                                    {/* Toolbar (Search & Tags) for Projects */}
+                                    <div className="flex flex-col md:flex-row gap-4 mb-6 shrink-0">
+                                        <div className="relative flex-1">
+                                            <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl"></i>
+                                            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar colecciones..." className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow shadow-sm font-medium" />
+                                        </div>
+                                        <button onClick={() => setShowTags(!showTags)} className={`px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all border shadow-sm ${showTags ? 'bg-brand-500 text-slate-900 border-brand-600' : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}>
+                                            <i className="ph ph-funnel text-xl"></i> Filtrar
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Tag Cloud for Projects */}
+                                    {showTags && allAvailableTags.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-6 shrink-0 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm transition-all animate-[fadeIn_0.2s_ease-out]">
+                                            <div className="w-full mb-2 text-sm font-bold text-slate-500 flex items-center gap-2"><i className="ph ph-tag"></i> Filtrar proyectos por etiquetas:</div>
+                                            {allAvailableTags.map(tag => {
+                                                const isActive = selectedTags.includes(tag);
+                                                return (
+                                                    <button key={tag} onClick={() => setSelectedTags(prev => isActive ? prev.filter(t => t !== tag) : [...prev, tag])}
+                                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all border ${isActive ? 'bg-brand-500 text-slate-900 border-brand-600 shadow-md transform scale-105' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-brand-300 hover:bg-brand-50'}`}>
+                                                        {tag}
+                                                    </button>
+                                                )
+                                            })}
+                                            {selectedTags.length > 0 && (
+                                                <button onClick={() => setSelectedTags([])} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-600 underline ml-2">Limpiar filtros</button>
+                                            )}
+                                        </div>
+                                    )}
 
-                                    {data.projects.length === 0 ? (
+                                    {/* Project Tabs (Active/Archived) */}
+                                    <div className="flex border-b border-slate-200 mb-6">
+                                        <button onClick={() => setProjectTab('active')} className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 transition-all border-b-2 ${projectTab === 'active' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                                            <i className="ph ph-folders"></i> Activos
+                                        </button>
+                                        <button onClick={() => setProjectTab('archived')} className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 transition-all border-b-2 ${projectTab === 'archived' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                                            <i className="ph ph-archive"></i> Archivados
+                                        </button>
+                                    </div>
+
+                                    {filteredProjects.length === 0 ? (
                                         <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-white">
-                                            <i className="ph ph-folders text-6xl text-slate-300 mb-4 block"></i>
-                                            <h3 className="text-xl font-bold text-slate-800 mb-2">Aún no tienes proyectos</h3>
-                                            <p className="text-slate-500 mb-6 max-w-md mx-auto">Crea una colección para organizar los libros específicos para un semestre académico o un área de estudio.</p>
-                                            <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-xl font-semibold shadow-sm transition-all"><i className="ph ph-plus-circle mr-2"></i>Crear Primer Proyecto</button>
+                                            <i className={`ph ${projectTab === 'archived' ? 'ph-archive' : 'ph-folders'} text-6xl text-slate-300 mb-4 block`}></i>
+                                            <h3 className="text-xl font-bold text-slate-800 mb-2">
+                                                {projectTab === 'archived' ? 'No hay proyectos archivados' : 'Aún no tienes proyectos'}
+                                            </h3>
+                                            <p className="text-slate-500 mb-6 max-w-md mx-auto">
+                                                {projectTab === 'archived' 
+                                                    ? 'Los proyectos que archives aparecerán aquí para mantener tu vista principal limpia.' 
+                                                    : 'Crea una colección para organizar los libros específicos para un semestre académico o un área de estudio.'}
+                                            </p>
+                                            {projectTab === 'active' && (
+                                                <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-xl font-semibold shadow-sm transition-all"><i className="ph ph-plus-circle mr-2"></i>Crear Primer Proyecto</button>
+                                            )}
                                         </div>
                                     ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                            {data.projects.map(proj => {
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
+                                            {filteredProjects.map(proj => {
                                                 const bookCount = proj.publication_ids ? proj.publication_ids.split(',').filter(Boolean).length : 0;
+                                                const projTags = parseStringArray(proj.tags);
                                                 return (
-                                                    <div key={proj.project_id} onClick={() => setActiveProject(proj)} className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-brand-400 transition-all cursor-pointer group relative overflow-hidden">
+                                                    <div key={proj.project_id} onClick={() => setActiveProject(proj)} className={`bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-brand-400 transition-all cursor-pointer group relative overflow-hidden ${proj.status === 'archived' ? 'opacity-75 hover:opacity-100' : ''}`}>
                                                         <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-slate-100 to-transparent rounded-bl-full opacity-50 group-hover:from-brand-50 transition-colors"></div>
-                                                        <div className="flex items-center gap-3 mb-4">
-                                                            <div className="w-12 h-12 rounded-xl bg-slate-800 text-white flex items-center justify-center shrink-0 shadow-md group-hover:bg-brand-600 transition-colors">
-                                                                <i className="ph ph-folder-open text-2xl"></i>
-                                                            </div>
-                                                            <div>
-                                                                <h3 className="font-bold text-lg text-slate-900 leading-tight">{proj.title}</h3>
-                                                                <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{bookCount} {bookCount===1?'Libro':'Libros'}</span>
+                                                        <div className="flex items-start justify-between mb-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-12 h-12 rounded-xl text-white flex items-center justify-center shrink-0 shadow-md transition-colors ${proj.status === 'archived' ? 'bg-slate-400 group-hover:bg-slate-500' : 'bg-slate-800 group-hover:bg-brand-600'}`}>
+                                                                    <i className={`ph ${proj.status === 'archived' ? 'ph-archive' : 'ph-folder-open'} text-2xl`}></i>
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="font-bold text-lg text-slate-900 leading-tight">{proj.title}</h3>
+                                                                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{bookCount} {bookCount===1?'Libro':'Libros'}</span>
+                                                                </div>
                                                             </div>
                                                         </div>
+                                                        {projTags.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1.5 mb-3">
+                                                                {projTags.slice(0,3).map((t,i) => <span key={i} className="px-2 py-0.5 bg-brand-50 text-brand-800 text-[10px] font-bold uppercase tracking-wider rounded border border-brand-100">{t}</span>)}
+                                                                {projTags.length > 3 && <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[10px] font-bold rounded border border-slate-100">+{projTags.length - 3}</span>}
+                                                            </div>
+                                                        )}
                                                         <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">{proj.description || 'Sin descripción.'}</p>
-                                                        <div className="mt-5 pt-4 border-t border-slate-100 flex justify-end">
+                                                        <div className="mt-5 pt-4 border-t border-slate-100 flex justify-between items-center">
+                                                            <span className="text-xs text-slate-400 font-medium">Actualizado: {proj.updated_at ? new Date(proj.updated_at).toLocaleDateString() : 'N/A'}</span>
                                                             <span className="text-sm font-semibold text-brand-600 group-hover:text-brand-700 flex items-center gap-1">Explorar <i className="ph ph-arrow-right"></i></span>
                                                         </div>
                                                     </div>
