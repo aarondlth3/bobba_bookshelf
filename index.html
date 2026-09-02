@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bookshelf v2.0</title>
+    <title>Bookshelf</title>
     
     <!-- Iconos y Favicon de la App -->
     <link rel="icon" type="image/png" href="https://cdn.jsdelivr.net/gh/aarondlth3/bobba_bookshelf@main/images/favicon-96x96.png" sizes="96x96" />
@@ -21,7 +21,7 @@
                 extend: {
                     fontFamily: { sans: ['Inter', 'sans-serif'] },
                     colors: { 
-                        brand: { 50: '#f0fdf4', 100: '#dcfce7', 500: '#22c55e', 600: '#16a34a', 700: '#15803d', 900: '#14532d' } 
+                        brand: { 50: '#fefce8', 100: '#fef3c7', 200: '#fde68a', 300: '#fcd34d', 400: '#fbbf24', 500: '#F0C732', 600: '#d97706', 700: '#b45309', 900: '#78350f' } 
                     }
                 }
             }
@@ -41,7 +41,7 @@
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; overflow: hidden; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #16a34a; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #F0C732; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
         /* Modal Animations */
@@ -83,32 +83,45 @@
             return (
                 <ToastContext.Provider value={showToast}>
                     {children}
-                    <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
-                        {toasts.map(t => (
-                            <div key={t.id} className={`flex items-center gap-2 px-4 py-3 rounded-xl border shadow-lg text-sm font-medium modal-overlay pointer-events-auto
-                                ${t.type === 'success' ? 'bg-green-50 text-green-800 border-green-200' : 
-                                  t.type === 'error' ? 'bg-red-50 text-red-800 border-red-200' : 
-                                  'bg-blue-50 text-blue-800 border-blue-200'}`}>
-                                {t.type === 'success' && <i className="ph ph-check-circle text-lg text-green-500"></i>}
-                                {t.type === 'error' && <i className="ph ph-warning-circle text-lg text-red-500"></i>}
-                                {t.type === 'info' && <i className="ph ph-info text-lg text-blue-500"></i>}
-                                <span>{t.message}</span>
-                            </div>
-                        ))}
+                    <div className="fixed bottom-4 right-4 z-[999] flex flex-col gap-2">
+                        {toasts.map(toast => {
+                            const colors = {
+                                success: 'bg-green-50 text-green-800 border-green-200',
+                                error: 'bg-red-50 text-red-800 border-red-200',
+                                info: 'bg-blue-50 text-blue-800 border-blue-200'
+                            };
+                            const icons = {
+                                success: 'ph-check-circle text-green-500',
+                                error: 'ph-warning-circle text-red-500',
+                                info: 'ph-info text-blue-500'
+                            };
+                            return (
+                                <div key={toast.id} className={`flex items-center gap-2 px-4 py-3 rounded-lg border shadow-sm text-sm font-medium transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${colors[toast.type]}`}>
+                                    <i className={`ph ${icons[toast.type]} text-lg`}></i> <span>{toast.message}</span>
+                                </div>
+                            );
+                        })}
                     </div>
                 </ToastContext.Provider>
             );
         };
 
-        // --- COMPONENTES UI REUTILIZABLES ---
-
-        // ChipInput: Convierte texto separado por ";" en cajas (chips)
+        
+        // Chip Input for Authors and Tags
         const ChipInput = ({ value, onChange, placeholder, icon }) => {
             const [inputValue, setInputValue] = useState('');
-            const chips = value ? value.split(';').filter(Boolean) : [];
+            const chips = useMemo(() => value ? value.split(';').map(s => s.trim()).filter(Boolean) : [], [value]);
+
+            const addChip = () => {
+                if (inputValue.trim() && !chips.includes(inputValue.trim())) {
+                    const newChips = [...chips, inputValue.trim()];
+                    onChange(newChips.join(';'));
+                }
+                setInputValue('');
+            };
 
             const handleKeyDown = (e) => {
-                if (e.key === 'Enter' || e.key === ',') {
+                if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
                     e.preventDefault();
                     addChip();
                 } else if (e.key === 'Backspace' && inputValue === '' && chips.length > 0) {
@@ -116,17 +129,8 @@
                 }
             };
 
-            const addChip = () => {
-                const val = inputValue.trim().replace(/;/g, ''); // Evitar punto y coma interno
-                if (val && !chips.includes(val)) {
-                    onChange(chips.concat(val).join(';'));
-                }
-                setInputValue('');
-            };
-
             const removeChip = (index) => {
-                const newChips = [...chips];
-                newChips.splice(index, 1);
+                const newChips = chips.filter((_, i) => i !== index);
                 onChange(newChips.join(';'));
             };
 
@@ -152,10 +156,10 @@
             );
         };
 
-        const ModalWrapper = ({ isOpen, onClose, title, children, maxWidth = "max-w-xl" }) => {
+        const ModalWrapper = ({ isOpen, onClose, title, children, maxWidth = "max-w-xl", zIndex = "z-50" }) => {
             if (!isOpen) return null;
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                <div className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4 sm:p-6`}>
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm modal-overlay" onClick={onClose}></div>
                     <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-full flex flex-col modal-content overflow-hidden`}>
                         {title && (
@@ -174,7 +178,6 @@
             );
         };
 
-        
         const getDriveImageUrl = (thumbnailId) => {
             if (!thumbnailId) return null;
             return `https://drive.google.com/thumbnail?id=${thumbnailId}&sz=w600`;
@@ -260,7 +263,7 @@
             };
 
             return (
-                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Libro" : "Añadir Libro"}>
+                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Libro" : "Añadir Libro"} zIndex="z-[60]">
                     <form onSubmit={handleSubmit} className="p-6 space-y-5">
                         <div className="flex flex-col items-center gap-3">
                             <div className="w-32 h-48 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden relative group cursor-pointer shadow-sm hover:border-brand-400 hover:bg-slate-50 transition-all" onClick={() => fileInputRef.current.click()}>
@@ -301,8 +304,8 @@
                         
                         <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
                             <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors">Cancelar</button>
-                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 flex items-center gap-2 shadow-sm disabled:opacity-70">
-                                {isSaving ? <><div className="loader w-4 h-4 border-2 border-white/30 border-t-white"></div> Guardando</> : 'Guardar Libro'}
+                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2 shadow-sm disabled:opacity-70 transition-colors">
+                                {isSaving ? <><div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> Guardando</> : 'Guardar Libro'}
                             </button>
                         </div>
                     </form>
@@ -331,7 +334,7 @@
             const isV = type === 'version';
 
             return (
-                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? `Editar ${isV ? 'Versión' : 'Material'}` : `Añadir ${isV ? 'Versión' : 'Material'}`}>
+                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? `Editar ${isV ? 'Versión' : 'Material'}` : `Añadir ${isV ? 'Versión' : 'Material'}`} zIndex="z-[60]">
                     <form onSubmit={handleSubmit} className="p-6 space-y-4">
                         {isV ? (
                             <>
@@ -392,8 +395,8 @@
                         )}
                         <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
                             <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button>
-                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 flex items-center gap-2">
-                                {isSaving ? <div className="loader w-4 h-4 border-2 border-white/30 border-t-white"></div> : 'Guardar'}
+                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2 transition-colors">
+                                {isSaving ? <div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> : 'Guardar'}
                             </button>
                         </div>
                     </form>
@@ -403,6 +406,7 @@
 
         const ProjectFormModal = ({ isOpen, onClose, initialData, onSave, isSaving, allPublications }) => {
             const [formData, setFormData] = useState({ title: '', description: '', publication_ids: [] });
+            const [bookSearch, setBookSearch] = useState('');
             
             useEffect(() => {
                 if (isOpen) {
@@ -415,6 +419,7 @@
                     } else {
                         setFormData({ title: '', description: '', publication_ids: [] });
                     }
+                    setBookSearch('');
                 }
             }, [isOpen, initialData]);
 
@@ -438,9 +443,18 @@
                 onSave(payload);
             };
 
+            const filteredBooks = useMemo(() => {
+                let filtered = allPublications;
+                if (bookSearch.trim()) {
+                    const q = bookSearch.toLowerCase();
+                    filtered = filtered.filter(p => (p.title||'').toLowerCase().includes(q) || (p.author||'').toLowerCase().includes(q));
+                }
+                return filtered.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+            }, [allPublications, bookSearch]);
+
             return (
-                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Proyecto" : "Crear Proyecto"} maxWidth="max-w-2xl">
-                    <form onSubmit={handleSubmit} className="p-6 flex flex-col h-[70vh]">
+                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Proyecto" : "Crear Proyecto"} maxWidth="max-w-4xl" zIndex="z-[60]">
+                    <form onSubmit={handleSubmit} className="p-6 flex flex-col h-[80vh]">
                         <div className="space-y-4 mb-6 shrink-0">
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nombre del Proyecto / Colección *</label>
@@ -453,12 +467,18 @@
                         </div>
 
                         <div className="flex-1 min-h-0 flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                            <div className="px-4 py-3 bg-white border-b border-slate-200 flex justify-between items-center shrink-0">
-                                <span className="font-semibold text-sm text-slate-700">Seleccionar Libros</span>
-                                <span className="text-xs bg-brand-100 text-brand-700 px-2 py-1 rounded-md font-bold">{formData.publication_ids.length} seleccionados</span>
+                            <div className="px-4 py-3 bg-white border-b border-slate-200 flex flex-col gap-3 shrink-0">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-semibold text-sm text-slate-700">Seleccionar Libros</span>
+                                    <span className="text-xs bg-brand-100 text-brand-800 px-2 py-1 rounded-md font-bold">{formData.publication_ids.length} seleccionados</span>
+                                </div>
+                                <div className="relative">
+                                    <i className="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input type="text" value={bookSearch} onChange={e => setBookSearch(e.target.value)} placeholder="Buscar libros por título o autor para añadir..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                                </div>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-2 grid grid-cols-1 sm:grid-cols-2 gap-2 hide-scrollbar">
-                                {allPublications.map(pub => {
+                            <div className="flex-1 overflow-y-auto p-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 hide-scrollbar">
+                                {filteredBooks.map(pub => {
                                     const isSelected = formData.publication_ids.includes(pub.publication_id);
                                     return (
                                         <div key={pub.publication_id} onClick={() => toggleBook(pub.publication_id)} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer border transition-colors ${isSelected ? 'bg-brand-50 border-brand-300' : 'bg-white border-transparent hover:border-slate-300'}`}>
@@ -466,7 +486,7 @@
                                                 {isSelected && <i className="ph ph-check text-xs font-bold"></i>}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className={`text-sm font-medium truncate ${isSelected ? 'text-brand-900' : 'text-slate-700'}`}>{pub.title}</p>
+                                                <p className={`text-sm font-semibold truncate ${isSelected ? 'text-brand-900' : 'text-slate-800'}`}>{pub.title}</p>
                                                 <p className="text-xs text-slate-500 truncate">{parseStringArray(pub.author).join(', ')}</p>
                                             </div>
                                         </div>
@@ -477,15 +497,14 @@
                         
                         <div className="pt-5 mt-4 flex justify-end gap-3 border-t border-slate-100 shrink-0">
                             <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button>
-                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 flex items-center gap-2">
-                                {isSaving ? <div className="loader w-4 h-4 border-2 border-white/30 border-t-white"></div> : 'Guardar Proyecto'}
+                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2 transition-colors">
+                                {isSaving ? <div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> : 'Guardar Proyecto'}
                             </button>
                         </div>
                     </form>
                 </ModalWrapper>
             );
         };
-
 
         const BookDetailModal = ({ isOpen, onClose, book, versions, materials, onEdit, onDelete, onOpenItemForm, onDeleteItem }) => {
             const [tab, setTab] = useState('versions');
@@ -497,7 +516,7 @@
             const authors = parseStringArray(book.author);
 
             return (
-                <ModalWrapper isOpen={isOpen} onClose={onClose} maxWidth="max-w-4xl" title={null}>
+                <ModalWrapper isOpen={isOpen} onClose={onClose} maxWidth="max-w-4xl" title={null} zIndex="z-50">
                     {/* Header */}
                     <div className="flex flex-col md:flex-row gap-6 p-6 md:p-8 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 relative">
                         <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md text-slate-400 hover:text-slate-800 transition-all z-10"><i className="ph ph-x text-lg"></i></button>
@@ -508,7 +527,7 @@
                         
                         <div className="flex-1 flex flex-col pt-2 text-center md:text-left">
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-3">
-                                {tags.map((t,i) => <span key={i} className="px-2.5 py-1 rounded-lg bg-brand-100/80 border border-brand-200 text-brand-800 text-xs font-bold tracking-wide shadow-sm">{t}</span>)}
+                                {tags.map((t,i) => <span key={i} className="px-2.5 py-1 rounded-lg bg-brand-100/80 border border-brand-200 text-slate-800 text-xs font-bold tracking-wide shadow-sm">{t}</span>)}
                             </div>
                             <h2 className="text-2xl md:text-4xl font-black text-slate-900 leading-tight mb-2 tracking-tight">{book.title}</h2>
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-4 text-slate-600 font-medium text-lg">
@@ -646,6 +665,7 @@
             const [search, setSearch] = useState('');
             const [selectedTags, setSelectedTags] = useState([]);
             const [activeProject, setActiveProject] = useState(null);
+            const [showTags, setShowTags] = useState(false);
 
             // Estados Modales
             const [bookForm, setBookForm] = useState({ open: false, data: null, saving: false });
@@ -789,29 +809,28 @@
             }, [data.publications, search, selectedTags, activeProject]);
 
 
-            
             return (
                 <>
                     {/* TOP HEADER */}
-                    <header className="bg-white border-b border-slate-200 shrink-0 z-20 relative">
+                    <header className="bg-white border-b border-slate-200 shrink-0 z-20 relative shadow-sm">
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-8">
                                 <div className="flex items-center gap-3 cursor-pointer" onClick={() => {setView('library'); setActiveProject(null);}}>
-                                    <img src="https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/07297969d12577f03fab52d59711c7cc3000bd1b/images/bookshelf_img.png" alt="Logo" className="h-9 w-auto object-contain" />
-                                    <span className="font-bold text-xl text-slate-800 tracking-tight hidden sm:block">Bookshelf</span>
+                                    <img src="https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/07297969d12577f03fab52d59711c7cc3000bd1b/images/bookshelf_img.png" alt="Logo" className="h-9 w-auto object-contain drop-shadow-sm" />
+                                    <span className="font-bold text-xl text-slate-800 tracking-tight hidden sm:block">Bookshelfxxx</span>
                                 </div>
-                                <nav className="hidden md:flex items-center gap-1">
-                                    <button onClick={() => {setView('library'); setActiveProject(null);}} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${view === 'library' && !activeProject ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>Biblioteca</button>
-                                    <button onClick={() => setView('projects')} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${view === 'projects' || activeProject ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}>Proyectos</button>
+                                <nav className="hidden md:flex gap-6">
+                                    <button onClick={() => {setView('library'); setActiveProject(null);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'library' && !activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-books"></i> Mi Biblioteca</button>
+                                    <button onClick={() => {setView('projects'); setActiveProject(null);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'projects' || activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-folders"></i> Colecciones</button>
                                 </nav>
                             </div>
                             <div className="flex items-center gap-3">
                                 {view === 'library' && !activeProject ? (
-                                    <button onClick={() => setBookForm({ open: true, data: null, saving: false })} className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-sm">
+                                    <button onClick={() => setBookForm({ open: true, data: null, saving: false })} className="bg-brand-500 hover:bg-brand-600 text-slate-900 px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105">
                                         <i className="ph ph-plus-circle text-lg"></i> <span className="hidden sm:inline">Nuevo Libro</span>
                                     </button>
                                 ) : (
-                                    <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-sm">
+                                    <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105">
                                         <i className="ph ph-folder-plus text-lg"></i> <span className="hidden sm:inline">Nuevo Proyecto</span>
                                     </button>
                                 )}
@@ -823,7 +842,7 @@
                     <main className="flex-1 overflow-y-auto w-full relative bg-slate-50/50">
                         {isLoading ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-10">
-                                <div className="loader w-12 h-12 border-4 border-slate-200 border-t-brand-600 mb-4"></div>
+                                <div className="loader border-t-brand-600 border-slate-200 w-12 h-12 border-4 mb-4"></div>
                                 <p className="text-slate-600 font-semibold tracking-wide animate-pulse">Sincronizando base de datos...</p>
                             </div>
                         ) : null}
@@ -857,23 +876,26 @@
                                             <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl"></i>
                                             <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por título o autor..." className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow shadow-sm font-medium" />
                                         </div>
+                                        <button onClick={() => setShowTags(!showTags)} className={`px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all border shadow-sm ${showTags ? 'bg-brand-500 text-slate-900 border-brand-600' : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}>
+                                            <i className="ph ph-compass text-xl"></i> Explorar
+                                        </button>
                                     </div>
 
                                     {/* Tag Cloud */}
-                                    {allAvailableTags.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-8 shrink-0">
-                                            <div className="flex items-center gap-2 mr-2 text-sm font-semibold text-slate-500"><i className="ph ph-funnel"></i> Explorar:</div>
+                                    {showTags && allAvailableTags.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-8 shrink-0 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm transition-all animate-[fadeIn_0.2s_ease-out]">
+                                            <div className="w-full mb-2 text-sm font-bold text-slate-500 flex items-center gap-2"><i className="ph ph-tag"></i> Filtrar por géneros / etiquetas:</div>
                                             {allAvailableTags.map(tag => {
                                                 const isActive = selectedTags.includes(tag);
                                                 return (
                                                     <button key={tag} onClick={() => setSelectedTags(prev => isActive ? prev.filter(t => t !== tag) : [...prev, tag])}
-                                                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all border ${isActive ? 'bg-brand-600 text-white border-brand-600 shadow-md transform scale-105' : 'bg-white text-slate-600 border-slate-200 hover:border-brand-300 hover:bg-brand-50'}`}>
+                                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all border ${isActive ? 'bg-brand-500 text-slate-900 border-brand-600 shadow-md transform scale-105' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-brand-300 hover:bg-brand-50'}`}>
                                                         {tag}
                                                     </button>
                                                 )
                                             })}
                                             {selectedTags.length > 0 && (
-                                                <button onClick={() => setSelectedTags([])} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-600 underline">Limpiar filtros</button>
+                                                <button onClick={() => setSelectedTags([])} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-600 underline ml-2">Limpiar filtros</button>
                                             )}
                                         </div>
                                     )}
