@@ -11,7 +11,6 @@
     <link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/aarondlth3/bobba_bookshelf@main/images/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="https://cdn.jsdelivr.net/gh/aarondlth3/bobba_bookshelf@main/images/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Bookshelf" />
-    <link rel="manifest" href="https://cdn.jsdelivr.net/gh/aarondlth3/bobba_bookshelf@main/images/site.webmanifest" />
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -44,13 +43,19 @@
         .loader { border: 3px solid #f3f3f3; border-radius: 50%; border-top: 3px solid #F0C732; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        /* Modal Animations */
         .modal-overlay { animation: fadeIn 0.2s ease-out forwards; }
         .modal-content { animation: scaleIn 0.2s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes scaleIn { 
             from { opacity: 0; transform: scale(0.95) translateY(10px); } 
             to { opacity: 1; transform: scale(1) translateY(0); } 
+        }
+        
+        /* Dropdown Animation */
+        .dropdown-enter { animation: slideDown 0.2s ease-out forwards; transform-origin: top; }
+        @keyframes slideDown {
+            from { opacity: 0; transform: scaleY(0.95); }
+            to { opacity: 1; transform: scaleY(1); }
         }
     </style>
 </head>
@@ -61,40 +66,26 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef, createContext, useContext } = React;
 
-        // --- CONFIGURACIÓN DE LA API ---
         const API_URL = "https://script.google.com/macros/s/AKfycbwPkKnIYkt4RYa_IzhVcZ3W-7pB75Tr5IuZRsahT8I50i1kmtrz4s61ZIX56ZplPW3y/exec";
         const API_TOKEN = "bobba_bookshelf_secreto_2026";
 
-        // --- CONTEXTO DE TOAST (NOTIFICACIONES) ---
         const ToastContext = createContext();
         const useToast = () => useContext(ToastContext);
 
         const ToastProvider = ({ children }) => {
             const [toasts, setToasts] = useState([]);
-
             const showToast = (message, type = 'info') => {
                 const id = Date.now();
                 setToasts(prev => [...prev, { id, message, type }]);
-                setTimeout(() => {
-                    setToasts(prev => prev.filter(t => t.id !== id));
-                }, 3000);
+                setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
             };
-
             return (
                 <ToastContext.Provider value={showToast}>
                     {children}
                     <div className="fixed bottom-4 right-4 z-[999] flex flex-col gap-2">
                         {toasts.map(toast => {
-                            const colors = {
-                                success: 'bg-green-50 text-green-800 border-green-200',
-                                error: 'bg-red-50 text-red-800 border-red-200',
-                                info: 'bg-blue-50 text-blue-800 border-blue-200'
-                            };
-                            const icons = {
-                                success: 'ph-check-circle text-green-500',
-                                error: 'ph-warning-circle text-red-500',
-                                info: 'ph-info text-blue-500'
-                            };
+                            const colors = { success: 'bg-green-50 text-green-800 border-green-200', error: 'bg-red-50 text-red-800 border-red-200', info: 'bg-blue-50 text-blue-800 border-blue-200' };
+                            const icons = { success: 'ph-check-circle text-green-500', error: 'ph-warning-circle text-red-500', info: 'ph-info text-blue-500' };
                             return (
                                 <div key={toast.id} className={`flex items-center gap-2 px-4 py-3 rounded-lg border shadow-sm text-sm font-medium transition-all duration-300 animate-[fadeIn_0.3s_ease-out] ${colors[toast.type]}`}>
                                     <i className={`ph ${icons[toast.type]} text-lg`}></i> <span>{toast.message}</span>
@@ -106,76 +97,9 @@
             );
         };
 
-        
-        // Chip Input for Authors and Tags
-        const ChipInput = ({ value, onChange, placeholder, icon }) => {
-            const [inputValue, setInputValue] = useState('');
-            const chips = useMemo(() => value ? value.split(';').map(s => s.trim()).filter(Boolean) : [], [value]);
-
-            const addChip = () => {
-                if (inputValue.trim() && !chips.includes(inputValue.trim())) {
-                    const newChips = [...chips, inputValue.trim()];
-                    onChange(newChips.join(';'));
-                }
-                setInputValue('');
-            };
-
-            const handleKeyDown = (e) => {
-                if (e.key === 'Enter' || e.key === ',' || e.key === ';') {
-                    e.preventDefault();
-                    addChip();
-                } else if (e.key === 'Backspace' && inputValue === '' && chips.length > 0) {
-                    removeChip(chips.length - 1);
-                }
-            };
-
-            const removeChip = (index) => {
-                const newChips = chips.filter((_, i) => i !== index);
-                onChange(newChips.join(';'));
-            };
-
-            return (
-                <div className="flex flex-wrap items-center gap-2 p-2 border border-slate-300 rounded-xl bg-white focus-within:ring-2 focus-within:ring-brand-500 focus-within:border-brand-500 transition-shadow">
-                    {icon && <i className={`ph ${icon} text-slate-400 ml-1`}></i>}
-                    {chips.map((chip, idx) => (
-                        <span key={idx} className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg border border-slate-200">
-                            {chip}
-                            <button type="button" onClick={() => removeChip(idx)} className="text-slate-400 hover:text-red-500 rounded-full p-0.5"><i className="ph ph-x text-xs"></i></button>
-                        </span>
-                    ))}
-                    <input
-                        type="text"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        onBlur={addChip}
-                        placeholder={chips.length === 0 ? placeholder : "Añadir otro..."}
-                        className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-1 px-1"
-                    />
-                </div>
-            );
-        };
-
-        const ModalWrapper = ({ isOpen, onClose, title, children, maxWidth = "max-w-xl", zIndex = "z-50" }) => {
-            if (!isOpen) return null;
-            return (
-                <div className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4 sm:p-6`}>
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm modal-overlay" onClick={onClose}></div>
-                    <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-full flex flex-col modal-content overflow-hidden`}>
-                        {title && (
-                            <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-white z-10 sticky top-0">
-                                <h2 className="text-xl font-bold text-slate-800">{title}</h2>
-                                <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors">
-                                    <i className="ph ph-x text-lg"></i>
-                                </button>
-                            </div>
-                        )}
-                        <div className="overflow-y-auto flex-1 hide-scrollbar">
-                            {children}
-                        </div>
-                    </div>
-                </div>
-            );
+        const parseStringArray = (str) => {
+            if (!str) return [];
+            return str.split(';').map(s => s.trim()).filter(Boolean);
         };
 
         const getDriveImageUrl = (thumbnailId) => {
@@ -193,11 +117,6 @@
             return link;
         };
 
-        const parseStringArray = (str) => {
-            if (!str) return [];
-            return str.split(';').filter(Boolean).map(s => s.trim());
-        };
-
         const MATERIAL_CONFIG = {
             'notion_link': { label: 'Apunte Notion (link)', icon: 'ph-notion-logo', action: 'open', color: 'text-slate-800', bg: 'bg-slate-100' },
             'md_zip': { label: 'Archivos markdown (.md)', icon: 'ph-file-md', action: 'download', color: 'text-amber-600', bg: 'bg-amber-50' },
@@ -208,23 +127,207 @@
             'other_link': { label: 'Otro', icon: 'ph-dots-three-circle', action: 'open', color: 'text-slate-500', bg: 'bg-slate-50' }
         };
 
-        // --- FORMULARIOS ---
+        const ChipInput = ({ value, onChange, placeholder, icon }) => {
+            const [inputValue, setInputValue] = useState('');
+            const chips = useMemo(() => parseStringArray(value), [value]);
+
+            const addChip = () => {
+                if (inputValue.trim() && !chips.includes(inputValue.trim())) {
+                    onChange([...chips, inputValue.trim()].join(';'));
+                }
+                setInputValue('');
+            };
+
+            const handleKeyDown = (e) => {
+                if (e.key === 'Enter' || e.key === ';' || e.key === ',') {
+                    e.preventDefault(); addChip();
+                } else if (e.key === 'Backspace' && inputValue === '' && chips.length > 0) {
+                    removeChip(chips.length - 1);
+                }
+            };
+
+            const removeChip = (index) => {
+                onChange(chips.filter((_, i) => i !== index).join(';'));
+            };
+
+            return (
+                <div className="flex flex-wrap items-center gap-2 p-2 border border-slate-300 rounded-xl bg-white focus-within:ring-2 focus-within:ring-brand-500 transition-shadow">
+                    {icon && <i className={`ph ${icon} text-slate-400 ml-1`}></i>}
+                    {chips.map((chip, idx) => (
+                        <span key={idx} className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 text-sm font-medium rounded-lg border border-slate-200">
+                            {chip}
+                            <button type="button" onClick={() => removeChip(idx)} className="text-slate-400 hover:text-red-500 rounded-full p-0.5"><i className="ph ph-x text-xs"></i></button>
+                        </span>
+                    ))}
+                    <input type="text" value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={handleKeyDown} onBlur={addChip} placeholder={chips.length === 0 ? placeholder : "Añadir otro..."} className="flex-1 min-w-[120px] bg-transparent outline-none text-sm py-1 px-1" />
+                </div>
+            );
+        };
+
+        const ModalWrapper = ({ isOpen, onClose, title, children, maxWidth = "max-w-xl", zIndex = "z-50" }) => {
+            if (!isOpen) return null;
+            return (
+                <div className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4 sm:p-6`}>
+                    <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm modal-overlay" onClick={onClose}></div>
+                    <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col modal-content overflow-hidden`}>
+                        {title && (
+                            <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-white z-10 sticky top-0">
+                                <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+                                <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"><i className="ph ph-x text-lg"></i></button>
+                            </div>
+                        )}
+                        <div className="overflow-y-auto flex-1 hide-scrollbar">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ImageUploader = ({ imageState, onChange, label }) => {
+            const fileInputRef = useRef(null);
+            
+            const handleImageChange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let { width, height } = img;
+                        const max = 500;
+                        if (width > height) { if (width > max) { height *= max / width; width = max; } } 
+                        else { if (height > max) { width *= max / height; height = max; } }
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                        onChange({ preview: dataUrl, file, base64: dataUrl.split(',')[1], name: file.name });
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            return (
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-32 h-48 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden relative group cursor-pointer shadow-sm hover:border-brand-400 hover:bg-slate-50 transition-all" onClick={() => fileInputRef.current.click()}>
+                        {imageState.preview ? (
+                            <img src={imageState.preview} className="w-full h-full object-cover" alt="Preview" />
+                        ) : (
+                            <div className="text-center p-2">
+                                <i className="ph ph-image text-3xl text-slate-400 mb-1 block"></i>
+                                <span className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">{label || "Foto"}</span>
+                            </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i className="ph ph-camera-plus text-white text-2xl"></i>
+                        </div>
+                    </div>
+                    <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleImageChange} />
+                </div>
+            );
+        };
+
+        const AuthorFormModal = ({ isOpen, onClose, initialData, onSave, isSaving }) => {
+            const [formData, setFormData] = useState({ name: '', nationality: '', lifespan: '', professions: '', career: '', biography: '', is_favorite: 'false' });
+            const [image, setImage] = useState({ preview: null, file: null, base64: null, name: null });
+            
+            useEffect(() => {
+                if (isOpen) {
+                    if (initialData && initialData.isRegistered) {
+                        setFormData({
+                            name: initialData.name || '', nationality: initialData.nationality || '', lifespan: initialData.lifespan || '',
+                            professions: initialData.professions || '', career: initialData.career || '', biography: initialData.biography || '',
+                            is_favorite: initialData.is_favorite || 'false'
+                        });
+                        setImage({ preview: getDriveImageUrl(initialData.thumbnailId), file: null, base64: null, name: null });
+                    } else {
+                        // Pre-fill name if it comes from an auto-detected author
+                        setFormData({ name: initialData?.name || '', nationality: '', lifespan: '', professions: '', career: '', biography: '', is_favorite: 'false' });
+                        setImage({ preview: null, file: null, base64: null, name: null });
+                    }
+                }
+            }, [isOpen, initialData]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                let payload = { ...formData, is_favorite: String(formData.is_favorite) };
+                if (initialData?.author_id) payload.author_id = initialData.author_id;
+                if (image.base64) { payload.imageBase64 = image.base64; payload.imageName = image.name; }
+                if (initialData?.thumbnailId && !image.base64) { payload.thumbnailId = initialData.thumbnailId; }
+                onSave(payload);
+            };
+
+            return (
+                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData?.isRegistered ? "Editar Autor" : "Completar Perfil de Autor"} zIndex="z-[60]" maxWidth="max-w-2xl">
+                    <form onSubmit={handleSubmit} className="p-6">
+                        <div className="flex flex-col md:flex-row gap-6 mb-6">
+                            <div className="w-full md:w-1/3 flex flex-col items-center shrink-0">
+                                <ImageUploader imageState={image} onChange={setImage} label="Foto del Autor" />
+                                <div className="mt-4 w-full flex items-center justify-center gap-2">
+                                    <label className="text-sm font-semibold text-slate-700">Favorito:</label>
+                                    <button type="button" onClick={() => setFormData({...formData, is_favorite: formData.is_favorite === 'true' ? 'false' : 'true'})} className={`p-2 rounded-full transition-colors ${formData.is_favorite === 'true' ? 'text-yellow-500 bg-yellow-50' : 'text-slate-400 bg-slate-100 hover:bg-slate-200'}`}>
+                                        <i className={`ph ${formData.is_favorite === 'true' ? 'ph-star-fill' : 'ph-star'} text-xl`}></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex-1 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nombre del Autor *</label>
+                                    <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nacionalidad</label>
+                                        <input type="text" value={formData.nationality} onChange={e => setFormData({...formData, nationality: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: Escocés" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Años de vida</label>
+                                        <input type="text" value={formData.lifespan} onChange={e => setFormData({...formData, lifespan: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: 1892 - 1973" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Profesiones</label>
+                                    <ChipInput icon="ph-briefcase" value={formData.professions} onChange={val => setFormData({...formData, professions: val})} placeholder="Ej: Filósofo; Ensayista..." />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 border-t border-slate-100 pt-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Trayectoria Laboral / Académica</label>
+                                <textarea rows="2" value={formData.career} onChange={e => setFormData({...formData, career: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none" placeholder="Universidades, puestos importantes..."></textarea>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Biografía Resumida</label>
+                                <textarea rows="4" value={formData.biography} onChange={e => setFormData({...formData, biography: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none" placeholder="Párrafos sobre su vida y obra..."></textarea>
+                            </div>
+                        </div>
+
+                        <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                            <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button>
+                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2">
+                                {isSaving ? <div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> : 'Guardar Autor'}
+                            </button>
+                        </div>
+                    </form>
+                </ModalWrapper>
+            );
+        };
 
         const BookFormModal = ({ isOpen, onClose, initialData, onSave, isSaving }) => {
             const [formData, setFormData] = useState({ title: '', author: '', tags: '', description: '', thumbnailId: '' });
             const [image, setImage] = useState({ preview: null, file: null, base64: null, name: null });
-            const fileInputRef = useRef(null);
             const showToast = useToast();
 
             useEffect(() => {
                 if (isOpen) {
                     if (initialData) {
                         setFormData({
-                            title: initialData.title || '',
-                            author: initialData.author || '',
-                            tags: initialData.tags || '',
-                            description: initialData.description || '',
-                            thumbnailId: initialData.thumbnailId || ''
+                            title: initialData.title || '', author: initialData.author || '', tags: initialData.tags || '',
+                            description: initialData.description || '', thumbnailId: initialData.thumbnailId || ''
                         });
                         setImage({ preview: getDriveImageUrl(initialData.thumbnailId), file: null, base64: null, name: null });
                     } else {
@@ -234,87 +337,39 @@
                 }
             }, [isOpen, initialData]);
 
-            const handleImageChange = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                if (!file.type.match('image.*')) return showToast("Selecciona una imagen válida", "error");
-
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let { width, height } = img;
-                        const max = 400;
-                        if (width > height) { if (width > max) { height *= max / width; width = max; } } 
-                        else { if (height > max) { width *= max / height; height = max; } }
-                        canvas.width = width; canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                        setImage({ preview: dataUrl, file, base64: dataUrl.split(',')[1], name: file.name });
-                    };
-                    img.src = ev.target.result;
-                };
-                reader.readAsDataURL(file);
-            };
-
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if(!formData.title) return showToast("El título es obligatorio", "error");
-                
                 const payload = { ...formData };
                 if (initialData?.publication_id) payload.publication_id = initialData.publication_id;
-                if (image.base64) {
-                    payload.imageBase64 = image.base64;
-                    payload.imageName = image.name;
-                }
+                if (image.base64) { payload.imageBase64 = image.base64; payload.imageName = image.name; }
                 onSave(payload);
             };
 
             return (
                 <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Libro" : "Añadir Libro"} zIndex="z-[60]">
                     <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                        <div className="flex flex-col items-center gap-3">
-                            <div className="w-32 h-48 bg-slate-100 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden relative group cursor-pointer shadow-sm hover:border-brand-400 hover:bg-slate-50 transition-all" onClick={() => fileInputRef.current.click()}>
-                                {image.preview ? (
-                                    <img src={image.preview} className="w-full h-full object-cover" alt="Preview" />
-                                ) : (
-                                    <div className="text-center p-2">
-                                        <i className="ph ph-image text-3xl text-slate-400 mb-1 block"></i>
-                                        <span className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold">Portada</span>
-                                    </div>
-                                )}
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <i className="ph ph-camera-plus text-white text-2xl"></i>
-                                </div>
-                            </div>
-                            <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleImageChange} />
-                        </div>
-
+                        <ImageUploader imageState={image} onChange={setImage} label="Portada" />
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título *</label>
-                            <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition-all" placeholder="Ej: Cien años de soledad" />
+                            <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" />
                         </div>
-                        
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Autor(es) *</label>
-                            <ChipInput icon="ph-user" value={formData.author} onChange={val => setFormData({...formData, author: val})} placeholder="Escribe y presiona Enter..." />
+                            <ChipInput icon="ph-user" value={formData.author} onChange={val => setFormData({...formData, author: val})} placeholder="Ej: J.R.R. Tolkien..." />
                         </div>
-
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Géneros / Tags *</label>
-                            <ChipInput icon="ph-tag" value={formData.tags} onChange={val => setFormData({...formData, tags: val})} placeholder="Ej: Novela, Realismo Mágico..." />
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Géneros / Etiquetas *</label>
+                            <ChipInput icon="ph-tag" value={formData.tags} onChange={val => setFormData({...formData, tags: val})} placeholder="Ej: Fantasía..." />
                         </div>
-
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Descripción</label>
-                            <textarea rows="3" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 focus:bg-white outline-none transition-all resize-none" placeholder="Sinopsis breve..."></textarea>
+                            <textarea rows="3" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none"></textarea>
                         </div>
                         
                         <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
-                            <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors">Cancelar</button>
-                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2 shadow-sm disabled:opacity-70 transition-colors">
+                            <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button>
+                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2">
                                 {isSaving ? <><div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> Guardando</> : 'Guardar Libro'}
                             </button>
                         </div>
@@ -330,7 +385,7 @@
                 if (isOpen) {
                     if (initialData) setFormData({ ...initialData });
                     else {
-                        if (type === 'version') setFormData({ language: 'Español', format: 'PDF', file_drive_link: '', isbn: '', publication_date: '' });
+                        if (type === 'version') setFormData({ language: 'Español', format: 'PDF', file_drive_link: '', isbn: '', publication_date: '', edition_number: '', edition_year: '', publisher: '' });
                         else setFormData({ material_type: 'other_link', material_title: '', link: '', description: '' });
                     }
                 }
@@ -344,68 +399,91 @@
             const isV = type === 'version';
 
             return (
-                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? `Editar ${isV ? 'Versión' : 'Material'}` : `Añadir ${isV ? 'Versión' : 'Material'}`} zIndex="z-[60]">
+                <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? `Editar ${isV ? 'Versión' : 'Recurso'}` : `Añadir ${isV ? 'Versión' : 'Recurso'}`} zIndex="z-[60]" maxWidth="max-w-xl">
                     <form onSubmit={handleSubmit} className="p-6 space-y-4">
                         {isV ? (
                             <>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Idioma *</label>
-                                        <select value={formData.language || 'Español'} onChange={e => setFormData({...formData, language: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none">
+                                        <select value={formData.language || 'Español'} onChange={e => setFormData({...formData, language: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none">
                                             <option value="Español">Español</option><option value="Inglés">Inglés</option>
                                             <option value="Francés">Francés</option><option value="Otros">Otros</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-semibold text-slate-700 mb-1.5">Formato *</label>
-                                        <select value={formData.format || 'PDF'} onChange={e => setFormData({...formData, format: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none">
+                                        <select value={formData.format || 'PDF'} onChange={e => setFormData({...formData, format: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none">
                                             <option value="PDF">PDF</option><option value="EPUB">EPUB</option>
-                                            <option value="MOBI">MOBI</option><option value="Físico">Físico</option>
+                                            <option value="MOBI">MOBI</option><option value="ZIP">ZIP</option><option value="Físico">Físico</option>
                                         </select>
                                     </div>
                                 </div>
-                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
-                                    <label className="block text-sm font-bold text-blue-900 mb-1.5">ISBN <span className="font-normal text-blue-700">(Opcional pero recomendado)</span></label>
-                                    <input type="text" value={formData.isbn || ''} onChange={e => setFormData({...formData, isbn: e.target.value})} className="w-full px-4 py-2 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="Ej: 978-84-376-0494-7" />
+                                
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="col-span-1">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Edición</label>
+                                        <input type="text" value={formData.edition_number || ''} onChange={e => setFormData({...formData, edition_number: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm" placeholder="Ej: 3ra" />
+                                    </div>
+                                    <div className="col-span-1">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Año Edición</label>
+                                        <input type="text" value={formData.edition_year || ''} onChange={e => setFormData({...formData, edition_year: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm" placeholder="Ej: 2024" />
+                                    </div>
+                                    <div className="col-span-1">
+                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Año Obra</label>
+                                        <input type="text" value={formData.publication_date || ''} onChange={e => setFormData({...formData, publication_date: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none text-sm" placeholder="Original" />
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="col-span-2 sm:col-span-1">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Año/Fecha Edición</label>
-                                        <input type="text" value={formData.publication_date || ''} onChange={e => setFormData({...formData, publication_date: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: 2024" />
-                                    </div>
-                                    <div className="col-span-2 sm:col-span-1">
-                                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Enlace Drive *</label>
-                                        <input type="url" required value={formData.file_drive_link || ''} onChange={e => setFormData({...formData, file_drive_link: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="https://drive..." />
-                                    </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Editorial</label>
+                                    <input type="text" value={formData.publisher || ''} onChange={e => setFormData({...formData, publisher: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="Nombre de la editorial..." />
+                                </div>
+
+                                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                                    <label className="block text-sm font-bold text-blue-900 mb-1.5">ISBN</label>
+                                    <input type="text" value={formData.isbn || ''} onChange={e => setFormData({...formData, isbn: e.target.value})} className="w-full px-4 py-2 bg-white border border-blue-200 rounded-lg outline-none font-mono text-sm" placeholder="Ej: 978-84-376-0494-7" />
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Enlace Drive *</label>
+                                    <input type="url" required value={formData.file_drive_link || ''} onChange={e => setFormData({...formData, file_drive_link: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="https://drive..." />
                                 </div>
                             </>
                         ) : (
                             <>
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tipo *</label>
-                                    <select value={formData.material_type || 'other_link'} onChange={e => setFormData({...formData, material_type: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none">
-                                        {Object.entries(MATERIAL_CONFIG).map(([key, conf]) => (
-                                            <option key={key} value={key}>{conf.label}</option>
-                                        ))}
-                                    </select>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-3">Selecciona el tipo de recurso *</label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                        {Object.entries(MATERIAL_CONFIG).map(([key, conf]) => {
+                                            const isSelected = formData.material_type === key;
+                                            return (
+                                                <button key={key} type="button" onClick={() => setFormData({...formData, material_type: key})}
+                                                    className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${isSelected ? 'border-brand-500 bg-brand-50' : 'border-slate-100 bg-white hover:border-slate-300'}`}>
+                                                    <i className={`ph ${conf.icon} text-2xl mb-1 ${isSelected ? 'text-brand-600' : 'text-slate-500'}`}></i>
+                                                    <span className={`text-[10px] font-bold text-center leading-tight ${isSelected ? 'text-brand-800' : 'text-slate-600'}`}>{conf.label}</span>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título *</label>
-                                    <input type="text" required value={formData.material_title || ''} onChange={e => setFormData({...formData, material_title: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: Notas Capítulo 1" />
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Título del recurso *</label>
+                                    <input type="text" required value={formData.material_title || ''} onChange={e => setFormData({...formData, material_title: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="Ej: Notas Capítulo 1" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Enlace *</label>
-                                    <input type="url" required value={formData.link || ''} onChange={e => setFormData({...formData, link: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="URL..." />
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Enlace (URL) *</label>
+                                    <input type="url" required value={formData.link || ''} onChange={e => setFormData({...formData, link: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none" placeholder="https://..." />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Descripción</label>
-                                    <input type="text" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" />
+                                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Descripción breve</label>
+                                    <input type="text" value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none" />
                                 </div>
                             </>
                         )}
                         <div className="pt-4 flex justify-end gap-3 border-t border-slate-100">
                             <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button>
-                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2 transition-colors">
+                            <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2">
                                 {isSaving ? <div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> : 'Guardar'}
                             </button>
                         </div>
@@ -422,9 +500,7 @@
                 if (isOpen) {
                     if (initialData) {
                         setFormData({
-                            title: initialData.title || '',
-                            description: initialData.description || '',
-                            tags: initialData.tags || '',
+                            title: initialData.title || '', description: initialData.description || '', tags: initialData.tags || '',
                             publication_ids: initialData.publication_ids ? initialData.publication_ids.split(',').filter(Boolean) : []
                         });
                     } else {
@@ -435,21 +511,13 @@
             }, [isOpen, initialData]);
 
             const toggleBook = (id) => {
-                setFormData(prev => ({
-                    ...prev,
-                    publication_ids: prev.publication_ids.includes(id) 
-                        ? prev.publication_ids.filter(pid => pid !== id)
-                        : [...prev.publication_ids, id]
-                }));
+                setFormData(prev => ({ ...prev, publication_ids: prev.publication_ids.includes(id) ? prev.publication_ids.filter(pid => pid !== id) : [...prev.publication_ids, id] }));
             };
 
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if(!formData.title) return;
-                const payload = { 
-                    ...formData, 
-                    publication_ids: formData.publication_ids.join(',') 
-                };
+                const payload = { ...formData, publication_ids: formData.publication_ids.join(',') };
                 if(initialData?.project_id) payload.project_id = initialData.project_id;
                 onSave(payload);
             };
@@ -466,33 +534,32 @@
             return (
                 <ModalWrapper isOpen={isOpen} onClose={onClose} title={initialData ? "Editar Proyecto" : "Crear Proyecto"} maxWidth="max-w-5xl" zIndex="z-[60]">
                     <form onSubmit={handleSubmit} className="p-6 flex flex-col md:flex-row gap-6 h-[85vh] md:h-[75vh]">
-                        
-                        {/* Left Column: Form Details */}
-                        <div className="w-full md:w-1/3 flex flex-col space-y-5 overflow-y-auto pr-2 hide-scrollbar shrink-0">
-                            <div>
+                        {/* 2 Column Layout - Col 1: Fields */}
+                        <div className="w-full md:w-2/5 flex flex-col space-y-5 overflow-y-auto pr-2 hide-scrollbar shrink-0">
+                            <div className="p-[2px]">
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nombre del Proyecto / Colección *</label>
-                                <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" placeholder="Ej: Bibliografía Semestre 2027-1" />
+                                <input type="text" required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none" />
                             </div>
-                            <div>
+                            <div className="p-[2px]">
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Etiquetas (Opcional)</label>
-                                <ChipInput icon="ph-tag" value={formData.tags} onChange={val => setFormData({...formData, tags: val})} placeholder="Ej: Universidad, Investigación..." />
+                                <ChipInput icon="ph-tag" value={formData.tags} onChange={val => setFormData({...formData, tags: val})} placeholder="Ej: Universidad..." />
                             </div>
-                            <div className="flex-1 flex flex-col min-h-[120px]">
+                            <div className="p-[2px] flex-1 flex flex-col min-h-[120px]">
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Descripción</label>
-                                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none min-h-0" placeholder="Detalles del proyecto..."></textarea>
+                                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none min-h-[100px]"></textarea>
                             </div>
                         </div>
 
-                        {/* Right Column: Book Selection */}
-                        <div className="w-full md:w-2/3 flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex-1 min-h-[300px]">
+                        {/* Col 2: Books */}
+                        <div className="w-full md:w-3/5 flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-slate-50 flex-1 min-h-[300px]">
                             <div className="px-4 py-3 bg-white border-b border-slate-200 flex flex-col gap-3 shrink-0">
                                 <div className="flex justify-between items-center">
                                     <span className="font-semibold text-sm text-slate-700">Seleccionar Libros</span>
                                     <span className="text-xs bg-brand-100 text-brand-800 px-2 py-1 rounded-md font-bold">{formData.publication_ids.length} seleccionados</span>
                                 </div>
-                                <div className="relative">
-                                    <i className="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                    <input type="text" value={bookSearch} onChange={e => setBookSearch(e.target.value)} placeholder="Buscar libros por título o autor para añadir..." className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
+                                <div className="relative p-[1px]">
+                                    <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input type="text" value={bookSearch} onChange={e => setBookSearch(e.target.value)} placeholder="Buscar libros por título o autor para añadir..." className="w-full pl-10 pr-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
                                 </div>
                             </div>
                             <div className="flex-1 overflow-y-auto p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 hide-scrollbar content-start">
@@ -500,7 +567,7 @@
                                     const isSelected = formData.publication_ids.includes(pub.publication_id);
                                     return (
                                         <div key={pub.publication_id} onClick={() => toggleBook(pub.publication_id)} className={`flex items-start gap-3 p-2.5 rounded-lg cursor-pointer border transition-colors h-full ${isSelected ? 'bg-brand-50 border-brand-300 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                                            <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-brand-500 border-brand-500 text-white' : 'border-slate-300 bg-white'}`}>
+                                            <div className={`w-5 h-5 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-colors ${isSelected ? 'bg-brand-500 border-brand-500 text-slate-900' : 'border-slate-300 bg-white'}`}>
                                                 {isSelected && <i className="ph ph-check text-xs font-bold"></i>}
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -510,17 +577,11 @@
                                         </div>
                                     )
                                 })}
-                                {filteredBooks.length === 0 && (
-                                     <div className="col-span-1 sm:col-span-2 text-center py-8 text-slate-500 text-sm">
-                                         No se encontraron libros con esa búsqueda.
-                                     </div>
-                                )}
                             </div>
-                            
                             <div className="p-4 bg-white border-t border-slate-200 flex justify-end gap-3 shrink-0">
-                                <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-colors">Cancelar</button>
-                                <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2 shadow-sm disabled:opacity-70 transition-colors">
-                                    {isSaving ? <><div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> Guardando</> : 'Guardar Proyecto'}
+                                <button type="button" onClick={onClose} disabled={isSaving} className="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl font-medium">Cancelar</button>
+                                <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-brand-500 text-slate-900 rounded-xl font-bold hover:bg-brand-600 flex items-center gap-2">
+                                    {isSaving ? <><div className="loader border-t-slate-900 border-slate-900/30 w-4 h-4 border-2"></div> Guardando</> : 'Guardar'}
                                 </button>
                             </div>
                         </div>
@@ -531,7 +592,6 @@
 
         const BookDetailModal = ({ isOpen, onClose, book, versions, materials, onEdit, onDelete, onOpenItemForm, onDeleteItem }) => {
             const [tab, setTab] = useState('versions');
-            
             if (!isOpen || !book) return null;
 
             const imgUrl = getDriveImageUrl(book.thumbnailId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(book.title)}&background=f1f5f9&color=64748b&size=400`;
@@ -540,9 +600,8 @@
 
             return (
                 <ModalWrapper isOpen={isOpen} onClose={onClose} maxWidth="max-w-4xl" title={null} zIndex="z-50">
-                    {/* Header */}
                     <div className="flex flex-col md:flex-row gap-6 p-6 md:p-8 bg-gradient-to-br from-slate-50 to-slate-100 border-b border-slate-200 relative">
-                        <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md text-slate-400 hover:text-slate-800 transition-all z-10"><i className="ph ph-x text-lg"></i></button>
+                        <button onClick={onClose} className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-md text-slate-400 hover:text-slate-800 z-10"><i className="ph ph-x text-lg"></i></button>
                         
                         <div className="w-32 h-48 sm:w-44 sm:h-64 flex-shrink-0 rounded-xl overflow-hidden shadow-xl bg-white border border-slate-200 mx-auto md:mx-0">
                             <img src={imgUrl} className="w-full h-full object-cover" alt="Cover" />
@@ -550,7 +609,7 @@
                         
                         <div className="flex-1 flex flex-col pt-2 text-center md:text-left">
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-3">
-                                {tags.map((t,i) => <span key={i} className="px-2.5 py-1 rounded-lg bg-brand-100/80 border border-brand-200 text-slate-800 text-xs font-bold tracking-wide shadow-sm">{t}</span>)}
+                                {tags.map((t,i) => <span key={i} className="px-2.5 py-1 rounded-lg bg-brand-100 border border-brand-200 text-brand-900 text-xs font-bold tracking-wide shadow-sm">{t}</span>)}
                             </div>
                             <h2 className="text-2xl md:text-4xl font-black text-slate-900 leading-tight mb-2 tracking-tight">{book.title}</h2>
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 mb-4 text-slate-600 font-medium text-lg">
@@ -560,64 +619,60 @@
                             {book.description && <p className="text-sm text-slate-500 leading-relaxed mb-6 max-w-2xl">{book.description}</p>}
                             
                             <div className="mt-auto flex justify-center md:justify-start gap-3">
-                                <button onClick={() => onEdit(book)} className="px-4 py-2 bg-white border border-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all flex items-center gap-2 shadow-sm"><i className="ph ph-pencil-simple text-lg"></i> Editar Metadatos</button>
-                                <button onClick={() => onDelete(book.publication_id)} className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all flex items-center gap-2 shadow-sm"><i className="ph ph-trash text-lg"></i> Eliminar</button>
+                                <button onClick={() => onEdit(book)} className="px-4 py-2 bg-white border border-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all flex items-center gap-2"><i className="ph ph-pencil-simple"></i> Editar</button>
+                                <button onClick={() => onDelete(book.publication_id)} className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-50 transition-all flex items-center gap-2"><i className="ph ph-trash"></i> Eliminar</button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Tabs */}
                     <div className="flex border-b border-slate-200 px-6 bg-white sticky top-0 z-10 shadow-sm">
-                        <button onClick={() => setTab('versions')} className={`px-5 py-4 border-b-2 font-semibold text-sm flex items-center gap-2 transition-all ${tab === 'versions' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}>
-                            <i className="ph ph-files text-lg"></i> Ediciones & Archivos <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs ml-1">{versions.length}</span>
+                        <button onClick={() => setTab('versions')} className={`px-5 py-4 border-b-2 font-semibold text-sm flex items-center gap-2 transition-all ${tab === 'versions' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                            <i className="ph ph-files"></i> Versiones <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs ml-1">{versions.length}</span>
                         </button>
-                        <button onClick={() => setTab('materials')} className={`px-5 py-4 border-b-2 font-semibold text-sm flex items-center gap-2 transition-all ${tab === 'materials' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}>
-                            <i className="ph ph-folder-notch text-lg"></i> Recursos <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs ml-1">{materials.length}</span>
+                        <button onClick={() => setTab('materials')} className={`px-5 py-4 border-b-2 font-semibold text-sm flex items-center gap-2 transition-all ${tab === 'materials' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                            <i className="ph ph-folder-notch"></i> Recursos <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs ml-1">{materials.length}</span>
                         </button>
                     </div>
 
-                    {/* Content */}
                     <div className="p-6 md:p-8 bg-slate-50/50 min-h-[300px]">
                         {tab === 'versions' ? (
                             <div>
                                 <div className="flex justify-between items-center mb-6">
-                                    <h3 className="font-bold text-slate-800 text-lg">Ediciones Digitales</h3>
-                                    <button onClick={() => onOpenItemForm('version', null, book.publication_id)} className="text-sm bg-white border border-slate-200 hover:border-brand-300 hover:text-brand-600 shadow-sm text-slate-700 px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all"><i className="ph ph-plus-circle text-lg"></i> Añadir Versión</button>
+                                    <h3 className="font-bold text-slate-800 text-lg">Versiones / Archivos</h3>
+                                    <button onClick={() => onOpenItemForm('version', null, book.publication_id)} className="text-sm bg-white border border-slate-200 hover:border-brand-300 hover:text-brand-600 shadow-sm text-slate-700 px-4 py-2 rounded-xl font-semibold flex items-center gap-2"><i className="ph ph-plus-circle"></i> Añadir Versión</button>
                                 </div>
                                 {versions.length === 0 ? (
-                                    <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-white">
-                                        <i className="ph ph-file-x text-4xl text-slate-300 mb-3 block"></i>
-                                        <p className="text-slate-500 font-medium">No hay versiones registradas.</p>
-                                    </div>
+                                    <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-white"><p className="text-slate-500">No hay versiones registradas.</p></div>
                                 ) : (
-                                    <div className="grid gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {versions.map(v => (
-                                            <div key={v.version_id} className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-white border border-slate-200 rounded-2xl gap-4 hover:shadow-md hover:border-brand-200 transition-all group">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                                            <div key={v.version_id} className="flex flex-col p-5 bg-white border border-slate-200 rounded-2xl gap-3 hover:shadow-md hover:border-brand-300 transition-all group">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-bold uppercase tracking-wider">{v.format}</span>
-                                                        <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold uppercase tracking-wider">{v.language}</span>
-                                                        {v.publication_date && <span className="text-slate-500 text-sm font-medium ml-1">• {v.publication_date}</span>}
+                                                        <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded text-xs font-bold uppercase tracking-wider"><i className="ph ph-translate"></i> {v.language}</span>
                                                     </div>
-                                                    {v.isbn ? (
-                                                        <div className="flex items-center gap-2 text-slate-700">
-                                                            <i className="ph ph-barcode text-xl text-slate-400"></i>
-                                                            <span className="font-mono font-bold text-sm bg-slate-50 px-2 py-0.5 rounded border border-slate-100">ISBN: {v.isbn}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <p className="text-sm text-slate-400 italic">Sin ISBN registrado</p>
-                                                    )}
+                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button onClick={() => onOpenItemForm('version', v, book.publication_id)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><i className="ph ph-pencil-simple"></i></button>
+                                                        <button onClick={() => onDeleteItem('version', v.version_id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><i className="ph ph-trash"></i></button>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    {v.file_drive_link && (
-                                                        <>
-                                                            <a href={getDirectDownloadLink(v.file_drive_link)} className="w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:text-brand-600 hover:bg-brand-50 hover:border-brand-200 transition-all" title="Descargar Directo"><i className="ph ph-download-simple text-lg"></i></a>
-                                                            <a href={v.file_drive_link} target="_blank" className="w-10 h-10 flex items-center justify-center bg-slate-50 border border-slate-200 rounded-xl text-slate-600 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-all" title="Abrir en Drive"><i className="ph ph-google-logo text-lg"></i></a>
-                                                        </>
-                                                    )}
-                                                    <button onClick={() => onOpenItemForm('version', v, book.publication_id)} className="w-10 h-10 flex items-center justify-center bg-white border border-transparent rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"><i className="ph ph-pencil-simple text-lg"></i></button>
-                                                    <button onClick={() => onDeleteItem('version', v.version_id)} className="w-10 h-10 flex items-center justify-center bg-white border border-transparent rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"><i className="ph ph-trash text-lg"></i></button>
+                                                
+                                                <div className="grid grid-cols-2 gap-2 text-sm text-slate-600">
+                                                    {v.publisher && <div><span className="font-semibold text-slate-400 block text-xs">Editorial</span>{v.publisher}</div>}
+                                                    {v.edition_number && <div><span className="font-semibold text-slate-400 block text-xs">Edición</span>{v.edition_number}</div>}
+                                                    {v.edition_year && <div><span className="font-semibold text-slate-400 block text-xs">Año Ed.</span>{v.edition_year}</div>}
+                                                    {v.publication_date && <div><span className="font-semibold text-slate-400 block text-xs">Año Original</span>{v.publication_date}</div>}
                                                 </div>
+                                                
+                                                {v.isbn && <div className="text-sm font-mono bg-slate-50 p-2 rounded-lg border border-slate-100 mt-1"><span className="font-bold text-slate-400 mr-2">ISBN</span>{v.isbn}</div>}
+                                                
+                                                {v.file_drive_link && (
+                                                    <div className="mt-auto pt-3 border-t border-slate-100 flex gap-2">
+                                                        <a href={getDirectDownloadLink(v.file_drive_link)} className="flex-1 py-1.5 flex justify-center items-center gap-1.5 bg-slate-50 text-slate-600 hover:text-brand-600 hover:bg-brand-50 rounded-lg text-xs font-bold"><i className="ph ph-download-simple"></i> Descargar</a>
+                                                        <a href={v.file_drive_link} target="_blank" className="flex-1 py-1.5 flex justify-center items-center gap-1.5 bg-slate-50 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg text-xs font-bold"><i className="ph ph-google-logo"></i> Drive</a>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -627,41 +682,30 @@
                             <div>
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="font-bold text-slate-800 text-lg">Recursos Adicionales</h3>
-                                    <button onClick={() => onOpenItemForm('material', null, book.publication_id)} className="text-sm bg-white border border-slate-200 hover:border-brand-300 hover:text-brand-600 shadow-sm text-slate-700 px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all"><i className="ph ph-plus-circle text-lg"></i> Añadir Recurso</button>
+                                    <button onClick={() => onOpenItemForm('material', null, book.publication_id)} className="text-sm bg-white border border-slate-200 hover:border-brand-300 hover:text-brand-600 shadow-sm text-slate-700 px-4 py-2 rounded-xl font-semibold flex items-center gap-2"><i className="ph ph-plus-circle"></i> Añadir Recurso</button>
                                 </div>
                                 {materials.length === 0 ? (
-                                    <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-white">
-                                        <i className="ph ph-folder-dashed text-4xl text-slate-300 mb-3 block"></i>
-                                        <p className="text-slate-500 font-medium">No hay materiales de estudio registrados.</p>
-                                    </div>
+                                    <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-2xl bg-white"><p className="text-slate-500">No hay materiales registrados.</p></div>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {materials.map(m => {
                                             const conf = MATERIAL_CONFIG[m.material_type] || MATERIAL_CONFIG['other_link'];
-                                            const icon = conf.icon;
-                                            const color = conf.color;
-                                            const bg = conf.bg;
-                                            const isDownload = conf.action === 'download';
-                                            const linkAction = isDownload ? getDirectDownloadLink(m.link) : m.link;
-
                                             return (
-                                                <div key={m.material_id} className="flex flex-col p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-md hover:border-brand-200 transition-all group">
+                                                <div key={m.material_id} className="flex flex-col p-4 bg-white border border-slate-200 rounded-2xl hover:shadow-md hover:border-brand-200 group">
                                                     <div className="flex items-start gap-3 mb-3">
-                                                        <div className={`w-12 h-12 rounded-xl ${bg} flex items-center justify-center shrink-0 border border-slate-100`}>
-                                                            <i className={`ph ${icon} text-2xl ${color}`}></i>
-                                                        </div>
+                                                        <div className={`w-12 h-12 rounded-xl ${conf.bg} flex items-center justify-center shrink-0 border border-slate-100`}><i className={`ph ${conf.icon} text-2xl ${conf.color}`}></i></div>
                                                         <div className="flex-1 min-w-0 pt-1">
-                                                            <h4 className="font-bold text-sm text-slate-800 truncate" title={m.material_title}>{m.material_title}</h4>
-                                                            {m.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">{m.description}</p>}
+                                                            <h4 className="font-bold text-sm text-slate-800 truncate">{m.material_title}</h4>
+                                                            {m.description && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{m.description}</p>}
                                                         </div>
                                                     </div>
                                                     <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between">
-                                                        <a href={linkAction} target="_blank" className="text-xs font-bold text-brand-600 hover:text-brand-800 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-brand-50 transition-colors">
-                                                            {isDownload ? <><i className="ph ph-download-simple text-lg"></i> Descargar</> : <><i className="ph ph-arrow-square-out text-lg"></i> Abrir Recurso</>}
+                                                        <a href={conf.action === 'download' ? getDirectDownloadLink(m.link) : m.link} target="_blank" className="text-xs font-bold text-brand-600 hover:text-brand-800 flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-brand-50">
+                                                            {conf.action === 'download' ? <><i className="ph ph-download-simple"></i> Descargar</> : <><i className="ph ph-arrow-square-out"></i> Abrir Recurso</>}
                                                         </a>
                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={() => onOpenItemForm('material', m, book.publication_id)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><i className="ph ph-pencil-simple text-base"></i></button>
-                                                            <button onClick={() => onDeleteItem('material', m.material_id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><i className="ph ph-trash text-base"></i></button>
+                                                            <button onClick={() => onOpenItemForm('material', m, book.publication_id)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg"><i className="ph ph-pencil-simple"></i></button>
+                                                            <button onClick={() => onDeleteItem('material', m.material_id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><i className="ph ph-trash"></i></button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -676,366 +720,294 @@
             );
         };
 
-
         const App = () => {
-            // Estados principales
-            const [view, setView] = useState('library'); // 'library' | 'projects'
-            const [projectTab, setProjectTab] = useState('active'); // 'active' | 'archived'
-            const [data, setData] = useState({ publications: [], versions: [], materials: [], projects: [] });
+            const [view, setView] = useState('library'); // 'library' | 'projects' | 'authors'
+            const [projectTab, setProjectTab] = useState('active'); 
+            const [data, setData] = useState({ publications: [], versions: [], materials: [], projects: [], authors: [] });
             const [isLoading, setIsLoading] = useState(true);
             const showToast = useToast();
 
-            // Filtros y Búsqueda
             const [search, setSearch] = useState('');
             const [selectedTags, setSelectedTags] = useState([]);
             const [activeProject, setActiveProject] = useState(null);
             const [showTags, setShowTags] = useState(false);
+            
+            // Mobile Menu
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-            // Estados Modales
+            // Modals
             const [bookForm, setBookForm] = useState({ open: false, data: null, saving: false });
             const [projectForm, setProjectForm] = useState({ open: false, data: null, saving: false });
             const [itemForm, setItemForm] = useState({ open: false, type: 'version', parentId: null, data: null, saving: false });
+            const [authorForm, setAuthorForm] = useState({ open: false, data: null, saving: false });
             const [detailModal, setDetailModal] = useState({ open: false, id: null });
 
-            // Carga inicial
             useEffect(() => { fetchData(); }, []);
 
-            const fetchData = async () => {
-                setIsLoading(true);
+            const fetchData = async (silent = false) => {
+                if(!silent) setIsLoading(true);
                 try {
-                    const res = await fetch(API_URL, {
-                        method: 'POST',
-                        body: JSON.stringify({ action: 'getAllData', token: API_TOKEN })
-                    });
+                    const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'getAllData', token: API_TOKEN }) });
                     const json = await res.json();
                     if (json.status === 'error') throw new Error(json.message);
                     setData({
-                        publications: json.data.publications || [],
-                        versions: json.data.versions || [],
-                        materials: json.data.materials || [],
-                        projects: json.data.projects || []
+                        publications: json.data.publications || [], versions: json.data.versions || [],
+                        materials: json.data.materials || [], projects: json.data.projects || [], authors: json.data.authors || []
                     });
-                } catch (error) {
-                    showToast(error.message, 'error');
-                } finally {
-                    setIsLoading(false);
-                }
+                } catch (error) { showToast(error.message, 'error'); } finally { setIsLoading(false); }
             };
 
-            // Helpers API Genéricos
             const apiCall = async (action, payload = {}) => {
-                const res = await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action, token: API_TOKEN, ...payload })
-                });
+                const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, token: API_TOKEN, ...payload }) });
                 const json = await res.json();
                 if (json.status === 'error') throw new Error(json.message);
                 return json.data;
             };
 
-            // --- Lógica de Libros ---
+            // Entity Saves
             const handleSaveBook = async (payload) => {
                 setBookForm(prev => ({...prev, saving: true}));
+                const isNew = !payload.publication_id;
                 try {
-                    const action = payload.publication_id ? 'updatePublication' : 'createPublication';
-                    await apiCall(action, { data: payload });
-                    showToast("Libro guardado con éxito", "success");
+                    const action = isNew ? 'createPublication' : 'updatePublication';
+                    const res = await apiCall(action, { data: payload });
+                    showToast("Libro guardado", "success");
                     setBookForm({ open: false, data: null, saving: false });
-                    fetchData();
+                    await fetchData(true);
+                    if(isNew && res.publication_id) setDetailModal({ open: true, id: res.publication_id });
                 } catch(e) { showToast(e.message, 'error'); setBookForm(prev => ({...prev, saving: false})); }
             };
 
-            const handleDeleteBook = async (id) => {
-                if(!confirm("¿Eliminar este libro y todo su contenido?")) return;
-                setDetailModal({ open: false, id: null });
-                try {
-                    await apiCall('deletePublication', { id });
-                    showToast("Libro eliminado", "success");
-                    fetchData();
-                } catch(e) { showToast(e.message, 'error'); }
-            };
-
-            // --- Lógica de Proyectos ---
             const handleSaveProject = async (payload) => {
                 setProjectForm(prev => ({...prev, saving: true}));
                 try {
                     const action = payload.project_id ? 'updateProject' : 'createProject';
                     await apiCall(action, { data: payload });
                     showToast("Proyecto guardado", "success");
-                    
-                    // Si el proyecto estaba activo, recargar sus datos para actualizar la vista
-                    if (activeProject && payload.project_id === activeProject.project_id) {
-                         const updatedProject = { ...activeProject, ...payload };
-                         setActiveProject(updatedProject);
-                    }
-                    
+                    if (activeProject && payload.project_id === activeProject.project_id) setActiveProject({ ...activeProject, ...payload });
                     setProjectForm({ open: false, data: null, saving: false });
-                    fetchData();
+                    fetchData(true);
                 } catch(e) { showToast(e.message, 'error'); setProjectForm(prev => ({...prev, saving: false})); }
             };
-
-            const handleToggleArchiveProject = async (project) => {
-                const newStatus = project.status === 'archived' ? 'active' : 'archived';
-                const actionText = newStatus === 'archived' ? 'archivar' : 'desarchivar';
-                
-                if(!confirm(`¿Estás seguro de ${actionText} este proyecto?`)) return;
-                
+            
+            const handleSaveAuthor = async (payload) => {
+                setAuthorForm(prev => ({...prev, saving: true}));
                 try {
-                    // Cierre optimista
-                    setActiveProject(null); 
-                    await apiCall('updateProject', { data: { project_id: project.project_id, status: newStatus } });
-                    showToast(`Proyecto ${newStatus === 'archived' ? 'archivado' : 'restaurado'}`, "success");
-                    fetchData();
-                } catch(e) { showToast(e.message, 'error'); }
+                    const action = payload.author_id ? 'updateAuthor' : 'createAuthor';
+                    await apiCall(action, { data: payload });
+                    showToast("Autor guardado", "success");
+                    setAuthorForm({ open: false, data: null, saving: false });
+                    fetchData(true);
+                } catch(e) { showToast(e.message, 'error'); setAuthorForm(prev => ({...prev, saving: false})); }
             };
 
-            const handleDeleteProject = async (id) => {
-                if(!confirm("¿Eliminar este proyecto? (Los libros no se borrarán)")) return;
-                setActiveProject(null);
-                try {
-                    await apiCall('deleteProject', { id });
-                    showToast("Proyecto eliminado", "success");
-                    fetchData();
-                } catch(e) { showToast(e.message, 'error'); }
-            };
-
-            // --- Lógica de Items (Versiones/Materiales) ---
             const handleSaveItem = async (payload) => {
                 setItemForm(prev => ({...prev, saving: true}));
                 const isV = itemForm.type === 'version';
                 const actionName = itemForm.data ? `update${isV?'Version':'Material'}` : `create${isV?'Version':'Material'}`;
                 try {
                     await apiCall(actionName, { data: payload });
-                    showToast("Guardado correctamente", "success");
+                    showToast("Guardado", "success");
                     setItemForm({ open: false, type: 'version', parentId: null, data: null, saving: false });
-                    fetchData();
+                    fetchData(true);
                 } catch(e) { showToast(e.message, 'error'); setItemForm(prev => ({...prev, saving: false})); }
+            };
+
+            // Deletions & Toggles
+            const handleDeleteBook = async (id) => {
+                if(!confirm("¿Eliminar este libro?")) return;
+                setDetailModal({ open: false, id: null });
+                try { await apiCall('deletePublication', { id }); showToast("Libro eliminado", "success"); fetchData(true); } catch(e) { showToast(e.message, 'error'); }
+            };
+            
+            const handleToggleArchiveProject = async (project) => {
+                const newStatus = project.status === 'archived' ? 'active' : 'archived';
+                if(!confirm(`¿${newStatus === 'archived' ? 'Archivar' : 'Restaurar'} este proyecto?`)) return;
+                setActiveProject(null); 
+                try { await apiCall('updateProject', { data: { project_id: project.project_id, status: newStatus } }); fetchData(true); } catch(e) { showToast(e.message, 'error'); }
             };
 
             const handleDeleteItem = async (type, id) => {
                 if(!confirm("¿Eliminar este elemento?")) return;
-                try {
-                    await apiCall(type === 'version' ? 'deleteVersion' : 'deleteMaterial', { id });
-                    showToast("Eliminado", "success");
-                    fetchData();
-                } catch(e) { showToast(e.message, 'error'); }
+                try { await apiCall(type === 'version' ? 'deleteVersion' : 'deleteMaterial', { id }); fetchData(true); } catch(e) { showToast(e.message, 'error'); }
             };
 
-            // --- Filtrado Inteligente ---
             const allAvailableTags = useMemo(() => {
                 const tagSet = new Set();
-                
-                if (view === 'library' || activeProject) {
-                     data.publications.forEach(p => { parseStringArray(p.tags).forEach(t => tagSet.add(t)); });
-                } else if (view === 'projects') {
-                     data.projects.forEach(p => { parseStringArray(p.tags).forEach(t => tagSet.add(t)); });
-                }
-                
+                if (view === 'library' || activeProject) data.publications.forEach(p => parseStringArray(p.tags).forEach(t => tagSet.add(t)));
+                else if (view === 'projects') data.projects.forEach(p => parseStringArray(p.tags).forEach(t => tagSet.add(t)));
                 return Array.from(tagSet).sort();
             }, [data.publications, data.projects, view, activeProject]);
 
             const filteredPublications = useMemo(() => {
                 let list = data.publications;
-                
-                // Si estamos dentro de un proyecto, filtrar primero por esos IDs
                 if (activeProject) {
                     const pIds = activeProject.publication_ids ? activeProject.publication_ids.split(',') : [];
                     list = list.filter(p => pIds.includes(p.publication_id));
                 }
-
-                // Filtro por Búsqueda (Título o Autores)
                 if (search.trim()) {
                     const q = search.toLowerCase();
                     list = list.filter(p => (p.title||'').toLowerCase().includes(q) || (p.author||'').toLowerCase().includes(q));
                 }
-
-                // Filtro por Tags (Debe incluir todos los tags seleccionados - AND logic)
                 if (selectedTags.length > 0) {
                     list = list.filter(p => {
                         const pTags = parseStringArray(p.tags);
                         return selectedTags.every(st => pTags.includes(st));
                     });
                 }
-
                 return list;
             }, [data.publications, search, selectedTags, activeProject]);
             
-            const filteredProjects = useMemo(() => {
-                let list = data.projects;
+            // Authors computed data
+            const authorsList = useMemo(() => {
+                const namesFromBooks = new Set();
+                data.publications.forEach(p => parseStringArray(p.author).forEach(a => namesFromBooks.add(a)));
                 
-                // Filtrar por estado (activo vs archivado)
-                const targetStatus = projectTab === 'archived' ? 'archived' : 'active';
-                list = list.filter(p => (p.status || 'active') === targetStatus);
+                const result = [];
+                namesFromBooks.forEach(name => {
+                    const existing = data.authors.find(a => a.name.toLowerCase() === name.toLowerCase());
+                    if (existing) {
+                        result.push({ ...existing, isRegistered: true });
+                    } else {
+                        result.push({ name, isRegistered: false, is_favorite: 'false' });
+                    }
+                });
+                return result.sort((a,b) => a.name.localeCompare(b.name));
+            }, [data.publications, data.authors]);
 
-                // Filtro por Búsqueda (Título o Descripción)
-                if (search.trim()) {
-                    const q = search.toLowerCase();
-                    list = list.filter(p => (p.title||'').toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q));
-                }
-
-                // Filtro por Tags 
-                if (selectedTags.length > 0) {
-                    list = list.filter(p => {
-                        const pTags = parseStringArray(p.tags);
-                        return selectedTags.every(st => pTags.includes(st));
-                    });
-                }
-                return list;
-            }, [data.projects, search, selectedTags, projectTab]);
+            const navigate = (newView) => {
+                setView(newView);
+                setActiveProject(null);
+                setSearch('');
+                setSelectedTags([]);
+                setIsMobileMenuOpen(false);
+            };
 
             return (
                 <>
-                    {/* TOP HEADER */}
-                    <header className="bg-white border-b border-slate-200 shrink-0 z-20 relative shadow-sm">
+                    <header className="bg-white border-b border-slate-200 shrink-0 z-40 relative shadow-sm">
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-8">
-                                <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => {setView('library'); setActiveProject(null); setSearch(''); setSelectedTags([]);}}>
-                                    <img src="https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/07297969d12577f03fab52d59711c7cc3000bd1b/images/bookshelf_img.png" alt="Bookshelf Logo" className="h-10 w-auto object-contain" />
+                                <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => navigate('library')}>
+                                    <img src="https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/07297969d12577f03fab52d59711c7cc3000bd1b/images/bookshelf_img.png" alt="Logo" className="h-10 w-auto object-contain" />
                                 </div>
                                 <nav className="hidden md:flex gap-6">
-                                    <button onClick={() => {setView('library'); setActiveProject(null); setSearch(''); setSelectedTags([]);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'library' && !activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-books"></i> Biblioteca</button>
-                                    <button onClick={() => {setView('projects'); setActiveProject(null); setSearch(''); setSelectedTags([]);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'projects' || activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-folders"></i> Proyectos</button>
+                                    <button onClick={() => navigate('library')} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'library' && !activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-books"></i> Biblioteca</button>
+                                    <button onClick={() => navigate('projects')} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'projects' || activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-folders"></i> Proyectos</button>
+                                    <button onClick={() => navigate('authors')} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'authors' ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-users"></i> Autores</button>
                                 </nav>
                             </div>
-                            <div className="flex items-center gap-2 sm:gap-3">
-                                
-                                {/* Botón de navegación alternante (Solo Móviles) */}
-                                <button 
-                                    onClick={() => {
-                                        const isLibrary = view === 'library' && !activeProject;
-                                        setView(isLibrary ? 'projects' : 'library');
-                                        setActiveProject(null);
-                                        setSearch('');
-                                        setSelectedTags([]);
-                                    }}
-                                    className="md:hidden flex items-center justify-center px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors gap-2 border border-slate-200 shadow-sm"
-                                >
-                                    <i className={`ph ${view === 'library' && !activeProject ? 'ph-folders' : 'ph-books'} text-lg`}></i>
-                                    <span className="hidden min-[375px]:inline">{view === 'library' && !activeProject ? 'Proyectos' : 'Biblioteca'}</span>
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => { setBookForm({ open: true, data: null, saving: false }); setIsMobileMenuOpen(false); }} className="hidden sm:flex bg-brand-500 hover:bg-brand-600 text-slate-900 px-4 py-2 rounded-xl text-sm font-bold transition-all items-center gap-2 shadow-sm transform hover:scale-105">
+                                    <i className="ph ph-plus-circle text-lg"></i> Nuevo Libro
                                 </button>
-
-                                {view === 'library' && !activeProject ? (
-                                    <button onClick={() => setBookForm({ open: true, data: null, saving: false })} className="bg-brand-500 hover:bg-brand-600 text-slate-900 px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105 shrink-0">
-                                        <i className="ph ph-plus-circle text-lg"></i> <span className="hidden sm:inline">Nuevo Libro</span>
-                                    </button>
-                                ) : (
-                                    <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105 shrink-0">
-                                        <i className="ph ph-folder-plus text-lg"></i> <span className="hidden sm:inline">Nuevo Proyecto</span>
-                                    </button>
-                                )}
+                                <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="md:hidden w-10 h-10 flex items-center justify-center text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+                                    <i className={`ph ${isMobileMenuOpen ? 'ph-x' : 'ph-list'} text-xl`}></i>
+                                </button>
                             </div>
                         </div>
+                        
+                        {/* Mobile Menu Dropdown */}
+                        {isMobileMenuOpen && (
+                            <div className="md:hidden absolute top-16 left-0 w-full bg-white border-b border-slate-200 shadow-xl dropdown-enter z-50 flex flex-col p-4 gap-2">
+                                <button onClick={() => navigate('library')} className={`p-3 rounded-xl flex items-center gap-3 text-left font-semibold ${view === 'library' ? 'bg-brand-50 text-brand-700' : 'text-slate-600'}`}><i className="ph ph-books text-xl"></i> Biblioteca</button>
+                                <button onClick={() => navigate('projects')} className={`p-3 rounded-xl flex items-center gap-3 text-left font-semibold ${view === 'projects' ? 'bg-brand-50 text-brand-700' : 'text-slate-600'}`}><i className="ph ph-folders text-xl"></i> Proyectos</button>
+                                <button onClick={() => navigate('authors')} className={`p-3 rounded-xl flex items-center gap-3 text-left font-semibold ${view === 'authors' ? 'bg-brand-50 text-brand-700' : 'text-slate-600'}`}><i className="ph ph-users text-xl"></i> Autores</button>
+                                <div className="h-px bg-slate-100 my-2"></div>
+                                <button onClick={() => { setBookForm({ open: true, data: null, saving: false }); setIsMobileMenuOpen(false); }} className="p-3 bg-brand-500 text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2"><i className="ph ph-plus-circle text-xl"></i> Nuevo Libro</button>
+                            </div>
+                        )}
                     </header>
 
-                    {/* MAIN CONTENT AREA */}
                     <main className="flex-1 overflow-y-auto w-full relative bg-slate-50/50">
-                        {isLoading ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-10">
+                        {isLoading && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm z-30">
                                 <div className="loader border-t-brand-600 border-slate-200 w-12 h-12 border-4 mb-4"></div>
-                                <p className="text-slate-600 font-semibold tracking-wide animate-pulse">Sincronizando base de datos...</p>
+                                <p className="text-slate-600 font-semibold animate-pulse">Cargando...</p>
                             </div>
-                        ) : null}
+                        )}
 
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex flex-col">
                             
-                            {/* VISTA: LIBRERÍA O DENTRO DE UN PROYECTO */}
+                            {/* --- VIEW: LIBRARY / ACTIVE PROJECT --- */}
                             {(view === 'library' || activeProject) && (
                                 <div className="flex-1 flex flex-col">
-                                    {/* Project Banner if active */}
                                     {activeProject && (
                                         <div className="mb-6 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm relative overflow-hidden group">
                                             <div className="absolute top-0 left-0 w-1.5 h-full bg-brand-500"></div>
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <button onClick={() => { setActiveProject(null); setView('projects'); }} className="text-slate-400 hover:text-brand-600 text-sm font-medium flex items-center gap-1 mb-2 transition-colors"><i className="ph ph-arrow-left"></i> Volver a proyectos</button>
+                                                    <button onClick={() => navigate('projects')} className="text-slate-400 hover:text-brand-600 text-sm font-medium flex items-center gap-1 mb-2"><i className="ph ph-arrow-left"></i> Volver a proyectos</button>
                                                     <div className="flex items-center gap-3 mb-1">
                                                         <h2 className="text-3xl font-black text-slate-900">{activeProject.title}</h2>
-                                                        {activeProject.status === 'archived' && (
-                                                            <span className="px-2.5 py-1 bg-slate-200 text-slate-600 text-xs font-bold rounded-md flex items-center gap-1"><i className="ph ph-archive"></i> Archivado</span>
-                                                        )}
+                                                        {activeProject.status === 'archived' && <span className="px-2.5 py-1 bg-slate-200 text-slate-600 text-xs font-bold rounded-md flex items-center gap-1"><i className="ph ph-archive"></i> Archivado</span>}
                                                     </div>
                                                     {activeProject.description && <p className="text-slate-500 max-w-2xl">{activeProject.description}</p>}
                                                 </div>
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => handleToggleArchiveProject(activeProject)} className="px-3 py-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-200 rounded-lg transition-colors font-medium text-sm flex items-center gap-2">
+                                                <div className="flex flex-col sm:flex-row gap-2">
+                                                    <button onClick={() => handleToggleArchiveProject(activeProject)} className="px-3 py-2 text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-200 rounded-lg font-medium text-sm flex items-center gap-2">
                                                         <i className={`ph ${activeProject.status === 'archived' ? 'ph-arrow-u-up-left' : 'ph-archive'} text-lg`}></i> 
-                                                        {activeProject.status === 'archived' ? 'Restaurar' : 'Archivar'}
+                                                        <span className="hidden sm:inline">{activeProject.status === 'archived' ? 'Restaurar' : 'Archivar'}</span>
                                                     </button>
-                                                    <button onClick={() => setProjectForm({ open: true, data: activeProject, saving: false })} className="p-2 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors" title="Editar"><i className="ph ph-pencil-simple text-lg"></i></button>
-                                                    <button onClick={() => handleDeleteProject(activeProject.project_id)} className="p-2 text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar"><i className="ph ph-trash text-lg"></i></button>
+                                                    <button onClick={() => setProjectForm({ open: true, data: activeProject, saving: false })} className="p-2 text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 rounded-lg"><i className="ph ph-pencil-simple text-lg"></i></button>
                                                 </div>
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Toolbar (Search & Tags) */}
-                                    <div className="flex flex-col md:flex-row gap-4 mb-6 shrink-0">
+                                    <div className="flex flex-col sm:flex-row gap-4 mb-6 shrink-0">
                                         <div className="relative flex-1">
                                             <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl"></i>
-                                            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por título o autor..." className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow shadow-sm font-medium" />
+                                            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar libros..." className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none shadow-sm font-medium" />
                                         </div>
-                                        <button onClick={() => setShowTags(!showTags)} className={`px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all border shadow-sm ${showTags ? 'bg-brand-500 text-slate-900 border-brand-600' : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}>
-                                            <i className="ph ph-funnel text-xl"></i> Filtrar
+                                        <button onClick={() => setShowTags(!showTags)} className={`px-5 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border shadow-sm ${showTags ? 'bg-brand-500 text-slate-900 border-brand-600' : 'bg-white text-slate-700 hover:bg-slate-50'}`}>
+                                            <i className="ph ph-funnel text-xl"></i> <span className="hidden sm:inline">Explorar</span>
                                         </button>
                                     </div>
 
-                                    {/* Tag Cloud */}
                                     {showTags && allAvailableTags.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-8 shrink-0 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm transition-all animate-[fadeIn_0.2s_ease-out]">
-                                            <div className="w-full mb-2 text-sm font-bold text-slate-500 flex items-center gap-2"><i className="ph ph-tag"></i> Filtrar por géneros / etiquetas:</div>
+                                        <div className="flex flex-wrap gap-2 mb-8 shrink-0 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm animate-[fadeIn_0.2s_ease-out]">
+                                            <div className="w-full mb-2 text-sm font-bold text-slate-500 flex items-center gap-2"><i className="ph ph-tag"></i> Filtrar por etiquetas:</div>
                                             {allAvailableTags.map(tag => {
                                                 const isActive = selectedTags.includes(tag);
                                                 return (
                                                     <button key={tag} onClick={() => setSelectedTags(prev => isActive ? prev.filter(t => t !== tag) : [...prev, tag])}
-                                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all border ${isActive ? 'bg-brand-500 text-slate-900 border-brand-600 shadow-md transform scale-105' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-brand-300 hover:bg-brand-50'}`}>
+                                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all border ${isActive ? 'bg-brand-500 text-slate-900 border-brand-600 shadow-md' : 'bg-slate-50 text-slate-600 hover:border-brand-300'}`}>
                                                         {tag}
                                                     </button>
                                                 )
                                             })}
-                                            {selectedTags.length > 0 && (
-                                                <button onClick={() => setSelectedTags([])} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-600 underline ml-2">Limpiar filtros</button>
-                                            )}
+                                            {selectedTags.length > 0 && <button onClick={() => setSelectedTags([])} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-600 underline ml-2">Limpiar</button>}
                                         </div>
                                     )}
 
-                                    {/* Grid */}
                                     {filteredPublications.length === 0 ? (
                                         <div className="flex-1 flex flex-col items-center justify-center text-center py-20">
                                             <i className="ph ph-books text-6xl text-slate-300 mb-4 block"></i>
                                             <h3 className="text-xl font-bold text-slate-800 mb-2">No se encontraron libros</h3>
-                                            <p className="text-slate-500 max-w-md mx-auto">Ajusta tu búsqueda, remueve los filtros o añade nuevos libros a tu colección.</p>
+                                            <p className="text-slate-500">Ajusta tu búsqueda o añade nuevos libros.</p>
                                         </div>
                                     ) : (
                                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6 pb-10">
                                             {filteredPublications.map(pub => {
-                                                const imgUrl = getDriveImageUrl(pub.thumbnailId);
-                                                const imgSrc = imgUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(pub.title)}&background=f1f5f9&color=64748b&size=400&font-size=0.3`;
-                                                
-                                                // Identificar qué recursos únicos tiene este libro
+                                                const imgSrc = getDriveImageUrl(pub.thumbnailId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(pub.title)}&background=f1f5f9&color=64748b&size=400`;
                                                 const bookMaterials = data.materials.filter(m => m.publication_id === pub.publication_id);
-                                                const uniqueMaterialTypes = [...new Set(bookMaterials.map(m => m.material_type))];
+                                                const uniqueTypes = [...new Set(bookMaterials.map(m => m.material_type))];
 
                                                 return (
-                                                    <div key={pub.publication_id} onClick={() => setDetailModal({ open: true, id: pub.publication_id })} className="bg-slate-200 rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl hover:border-brand-300 transition-all duration-300 cursor-pointer relative group aspect-[2/3] transform hover:-translate-y-1">
-                                                        <img src={imgSrc} className="w-full h-full object-cover" alt={pub.title} onError={(e) => { e.target.onerror = null; e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(pub.title)}&background=f87171&color=fff`; }} />
-                                                        
-                                                        {/* Indicadores superpuestos de Materiales */}
-                                                        {uniqueMaterialTypes.length > 0 && (
+                                                    <div key={pub.publication_id} onClick={() => setDetailModal({ open: true, id: pub.publication_id })} className="bg-slate-200 rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-2xl hover:border-brand-300 transition-all duration-300 cursor-pointer relative group aspect-[2/3]">
+                                                        <img src={imgSrc} className="w-full h-full object-cover" alt={pub.title} />
+                                                        {uniqueTypes.length > 0 && (
                                                             <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-10">
-                                                                {uniqueMaterialTypes.map(type => {
+                                                                {uniqueTypes.map(type => {
                                                                     const conf = MATERIAL_CONFIG[type] || MATERIAL_CONFIG['other_link'];
-                                                                    return (
-                                                                        <div key={type} className={`w-7 h-7 rounded-full flex items-center justify-center bg-white/95 shadow-md backdrop-blur-sm ${conf.color}`} title={conf.label}>
-                                                                            <i className={`ph ${conf.icon} text-lg`}></i>
-                                                                        </div>
-                                                                    );
+                                                                    return <div key={type} className={`w-7 h-7 rounded-full flex items-center justify-center bg-white/95 shadow-md backdrop-blur-sm ${conf.color}`} title={conf.label}><i className={`ph ${conf.icon} text-lg`}></i></div>
                                                                 })}
                                                             </div>
                                                         )}
-
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
                                                             <h4 className="text-white font-bold leading-tight mb-1 truncate">{pub.title}</h4>
-                                                            <p className="text-slate-200 text-xs truncate">{parseStringArray(pub.author).join(', ')}</p>
+                                                            <p className="text-slate-300 text-xs truncate">{parseStringArray(pub.author).join(', ')}</p>
                                                         </div>
                                                     </div>
                                                 );
@@ -1045,142 +1017,99 @@
                                 </div>
                             )}
 
-                            {/* VISTA: PROYECTOS (Listado) */}
+                            {/* --- VIEW: PROJECTS --- */}
                             {view === 'projects' && !activeProject && (
                                 <div className="flex-1">
                                     <div className="flex justify-between items-center mb-6">
-                                        <div>
-                                            <h2 className="text-3xl font-black text-slate-900 mb-2">Proyectos</h2>
-                                        </div>
+                                        <h2 className="text-3xl font-black text-slate-900">Proyectos</h2>
+                                        <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2"><i className="ph ph-folder-plus"></i><span className="hidden sm:inline">Nuevo Proyecto</span></button>
                                     </div>
                                     
-                                    {/* Toolbar (Search & Tags) for Projects */}
-                                    <div className="flex flex-col md:flex-row gap-4 mb-6 shrink-0">
-                                        <div className="relative flex-1">
-                                            <i className="ph ph-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl"></i>
-                                            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar proyectos..." className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none transition-shadow shadow-sm font-medium" />
-                                        </div>
-                                        <button onClick={() => setShowTags(!showTags)} className={`px-5 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all border shadow-sm ${showTags ? 'bg-brand-500 text-slate-900 border-brand-600' : 'bg-white text-slate-700 border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}>
-                                            <i className="ph ph-funnel text-xl"></i> Filtrar
-                                        </button>
-                                    </div>
-                                    
-                                    {/* Tag Cloud for Projects */}
-                                    {showTags && allAvailableTags.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-6 shrink-0 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm transition-all animate-[fadeIn_0.2s_ease-out]">
-                                            <div className="w-full mb-2 text-sm font-bold text-slate-500 flex items-center gap-2"><i className="ph ph-tag"></i> Filtrar proyectos por etiquetas:</div>
-                                            {allAvailableTags.map(tag => {
-                                                const isActive = selectedTags.includes(tag);
-                                                return (
-                                                    <button key={tag} onClick={() => setSelectedTags(prev => isActive ? prev.filter(t => t !== tag) : [...prev, tag])}
-                                                        className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all border ${isActive ? 'bg-brand-500 text-slate-900 border-brand-600 shadow-md transform scale-105' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-brand-300 hover:bg-brand-50'}`}>
-                                                        {tag}
-                                                    </button>
-                                                )
-                                            })}
-                                            {selectedTags.length > 0 && (
-                                                <button onClick={() => setSelectedTags([])} className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-slate-600 underline ml-2">Limpiar filtros</button>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Project Tabs (Active/Archived) */}
                                     <div className="flex border-b border-slate-200 mb-6">
-                                        <button onClick={() => setProjectTab('active')} className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 transition-all border-b-2 ${projectTab === 'active' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                                            <i className="ph ph-folders"></i> Activos
-                                        </button>
-                                        <button onClick={() => setProjectTab('archived')} className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 transition-all border-b-2 ${projectTab === 'archived' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                                            <i className="ph ph-archive"></i> Archivados
-                                        </button>
+                                        <button onClick={() => setProjectTab('active')} className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 border-b-2 ${projectTab === 'active' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}><i className="ph ph-folders"></i> Activos</button>
+                                        <button onClick={() => setProjectTab('archived')} className={`px-5 py-3 font-semibold text-sm flex items-center gap-2 border-b-2 ${projectTab === 'archived' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500'}`}><i className="ph ph-archive"></i> Archivados</button>
                                     </div>
 
-                                    {filteredProjects.length === 0 ? (
-                                        <div className="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl bg-white">
-                                            <i className={`ph ${projectTab === 'archived' ? 'ph-archive' : 'ph-folders'} text-6xl text-slate-300 mb-4 block`}></i>
-                                            <h3 className="text-xl font-bold text-slate-800 mb-2">
-                                                {projectTab === 'archived' ? 'No hay proyectos archivados' : 'Aún no tienes proyectos'}
-                                            </h3>
-                                            <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                                                {projectTab === 'archived' 
-                                                    ? 'Los proyectos que archives aparecerán aquí para mantener tu vista principal limpia.' 
-                                                    : 'Crea un proyecto para organizar los libros específicos para un semestre académico o un área de estudio.'}
-                                            </p>
-                                            {projectTab === 'active' && (
-                                                <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-xl font-semibold shadow-sm transition-all"><i className="ph ph-plus-circle mr-2"></i>Crear Primer Proyecto</button>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
-                                            {filteredProjects.map(proj => {
-                                                const bookCount = proj.publication_ids ? proj.publication_ids.split(',').filter(Boolean).length : 0;
-                                                const projTags = parseStringArray(proj.tags);
-                                                return (
-                                                    <div key={proj.project_id} onClick={() => setActiveProject(proj)} className={`bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-brand-400 transition-all cursor-pointer group relative overflow-hidden ${proj.status === 'archived' ? 'opacity-75 hover:opacity-100' : ''}`}>
-                                                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-slate-100 to-transparent rounded-bl-full opacity-50 group-hover:from-brand-50 transition-colors"></div>
-                                                        <div className="flex items-start justify-between mb-4">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className={`w-12 h-12 rounded-xl text-white flex items-center justify-center shrink-0 shadow-md transition-colors ${proj.status === 'archived' ? 'bg-slate-400 group-hover:bg-slate-500' : 'bg-slate-800 group-hover:bg-brand-600'}`}>
-                                                                    <i className={`ph ${proj.status === 'archived' ? 'ph-archive' : 'ph-folder-open'} text-2xl`}></i>
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="font-bold text-lg text-slate-900 leading-tight">{proj.title}</h3>
-                                                                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{bookCount} {bookCount===1?'Libro':'Libros'}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        {projTags.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1.5 mb-3">
-                                                                {projTags.slice(0,3).map((t,i) => <span key={i} className="px-2 py-0.5 bg-brand-50 text-brand-800 text-[10px] font-bold uppercase tracking-wider rounded border border-brand-100">{t}</span>)}
-                                                                {projTags.length > 3 && <span className="px-2 py-0.5 bg-slate-50 text-slate-500 text-[10px] font-bold rounded border border-slate-100">+{projTags.length - 3}</span>}
-                                                            </div>
-                                                        )}
-                                                        <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">{proj.description || 'Sin descripción.'}</p>
-                                                        <div className="mt-5 pt-4 border-t border-slate-100 flex justify-between items-center">
-                                                            <span className="text-xs text-slate-400 font-medium">Actualizado: {proj.updated_at ? new Date(proj.updated_at).toLocaleDateString() : 'N/A'}</span>
-                                                            <span className="text-sm font-semibold text-brand-600 group-hover:text-brand-700 flex items-center gap-1">Explorar <i className="ph ph-arrow-right"></i></span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-10">
+                                        {data.projects.filter(p => (p.status || 'active') === projectTab).map(proj => {
+                                            const tags = parseStringArray(proj.tags);
+                                            return (
+                                                <div key={proj.project_id} onClick={() => setActiveProject(proj)} className="bg-white border border-slate-200 rounded-2xl p-6 hover:shadow-xl hover:border-brand-400 cursor-pointer group">
+                                                    <div className="flex items-center gap-3 mb-4">
+                                                        <div className={`w-12 h-12 rounded-xl text-white flex items-center justify-center shrink-0 ${proj.status==='archived'?'bg-slate-400':'bg-slate-800'}`}><i className={`ph ${proj.status==='archived'?'ph-archive':'ph-folder-open'} text-2xl`}></i></div>
+                                                        <div>
+                                                            <h3 className="font-bold text-lg text-slate-900">{proj.title}</h3>
+                                                            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">{(proj.publication_ids?.split(',').filter(Boolean)||[]).length} Libros</span>
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                                    {tags.length > 0 && <div className="flex flex-wrap gap-1.5 mb-3">{tags.map((t,i) => <span key={i} className="px-2 py-0.5 bg-brand-50 text-brand-800 text-[10px] font-bold rounded border border-brand-100">{t}</span>)}</div>}
+                                                    <p className="text-sm text-slate-500 line-clamp-2">{proj.description}</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* --- VIEW: AUTHORS --- */}
+                            {view === 'authors' && (
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-3xl font-black text-slate-900">Enciclopedia de Autores</h2>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-10">
+                                        {/* Favorites Section */}
+                                        {authorsList.filter(a => a.is_favorite === 'true').length > 0 && (
+                                            <div className="col-span-full border-b border-slate-200 pb-4 mb-2">
+                                                <h3 className="font-bold text-slate-500 text-sm flex items-center gap-2 uppercase tracking-wider"><i className="ph ph-star-fill text-yellow-500"></i> Favoritos</h3>
+                                            </div>
+                                        )}
+                                        {authorsList.map((author, index) => {
+                                            const isFav = author.is_favorite === 'true';
+                                            const hasInfo = author.isRegistered;
+                                            const imgSrc = getDriveImageUrl(author.thumbnailId) || `https://ui-avatars.com/api/?name=${encodeURIComponent(author.name)}&background=f1f5f9&color=64748b`;
+                                            
+                                            return (
+                                                <div key={index} onClick={() => setAuthorForm({ open: true, data: author, saving: false })} className={`bg-white rounded-2xl border ${hasInfo ? 'border-slate-200 hover:border-brand-400 hover:shadow-lg' : 'border-dashed border-slate-300 opacity-70 hover:opacity-100'} p-5 flex flex-col items-center text-center cursor-pointer transition-all`}>
+                                                    <div className="relative w-24 h-24 mb-4">
+                                                        <img src={imgSrc} className="w-full h-full object-cover rounded-full shadow-sm border-2 border-white" alt={author.name} />
+                                                        {isFav && <div className="absolute bottom-0 right-0 w-6 h-6 bg-yellow-400 rounded-full border-2 border-white flex items-center justify-center text-white"><i className="ph ph-star-fill text-[10px]"></i></div>}
+                                                    </div>
+                                                    <h4 className="font-bold text-slate-900 mb-1">{author.name}</h4>
+                                                    {hasInfo ? (
+                                                        <>
+                                                            <p className="text-xs text-slate-500 font-medium">{author.nationality || 'Sin nacionalidad'} • {author.lifespan || '?'}</p>
+                                                            <div className="flex flex-wrap justify-center gap-1 mt-3">
+                                                                {parseStringArray(author.professions).slice(0,2).map((p,i) => <span key={i} className="text-[9px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{p}</span>)}
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <span className="text-xs font-semibold text-brand-600 bg-brand-50 px-2 py-1 rounded-md mt-2"><i className="ph ph-plus"></i> Completar Perfil</span>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
                                 </div>
                             )}
 
                         </div>
                     </main>
 
-                    {/* MODALES MONTADOS DINÁMICAMENTE */}
-                    <BookFormModal isOpen={bookForm.open} initialData={bookForm.data} isSaving={bookForm.saving}
-                        onClose={() => setBookForm({ open: false, data: null, saving: false })} onSave={handleSaveBook} />
+                    {/* Modals Mounting */}
+                    <BookFormModal isOpen={bookForm.open} initialData={bookForm.data} isSaving={bookForm.saving} onClose={() => setBookForm({ open: false, data: null, saving: false })} onSave={handleSaveBook} />
+                    <ProjectFormModal isOpen={projectForm.open} initialData={projectForm.data} isSaving={projectForm.saving} allPublications={data.publications} onClose={() => setProjectForm({ open: false, data: null, saving: false })} onSave={handleSaveProject} />
+                    <ItemFormModal isOpen={itemForm.open} type={itemForm.type} parentId={itemForm.parentId} initialData={itemForm.data} isSaving={itemForm.saving} onClose={() => setItemForm({ open: false, type: 'version', parentId: null, data: null, saving: false })} onSave={handleSaveItem} />
+                    <AuthorFormModal isOpen={authorForm.open} initialData={authorForm.data} isSaving={authorForm.saving} onClose={() => setAuthorForm({ open: false, data: null, saving: false })} onSave={handleSaveAuthor} />
                     
-                    <ProjectFormModal isOpen={projectForm.open} initialData={projectForm.data} isSaving={projectForm.saving} allPublications={data.publications}
-                        onClose={() => setProjectForm({ open: false, data: null, saving: false })} onSave={handleSaveProject} />
-                    
-                    <ItemFormModal isOpen={itemForm.open} type={itemForm.type} parentId={itemForm.parentId} initialData={itemForm.data} isSaving={itemForm.saving}
-                        onClose={() => setItemForm({ open: false, type: 'version', parentId: null, data: null, saving: false })} onSave={handleSaveItem} />
-                    
-                    <BookDetailModal 
-                        isOpen={detailModal.open} 
-                        book={data.publications.find(p => p.publication_id === detailModal.id)}
-                        versions={data.versions.filter(v => v.publication_id === detailModal.id)}
-                        materials={data.materials.filter(m => m.publication_id === detailModal.id)}
-                        onClose={() => setDetailModal({ open: false, id: null })}
-                        onEdit={(b) => setBookForm({ open: true, data: b, saving: false })}
-                        onDelete={handleDeleteBook}
-                        onOpenItemForm={(type, initial, parentId) => setItemForm({ open: true, type, data: initial, parentId, saving: false })}
-                        onDeleteItem={handleDeleteItem}
-                    />
+                    <BookDetailModal isOpen={detailModal.open} book={data.publications.find(p => p.publication_id === detailModal.id)} versions={data.versions.filter(v => v.publication_id === detailModal.id)} materials={data.materials.filter(m => m.publication_id === detailModal.id)} onClose={() => setDetailModal({ open: false, id: null })} onEdit={(b) => setBookForm({ open: true, data: b, saving: false })} onDelete={handleDeleteBook} onOpenItemForm={(type, initial, parentId) => setItemForm({ open: true, type, data: initial, parentId, saving: false })} onDeleteItem={handleDeleteItem} />
                 </>
             );
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(
-            <ToastProvider>
-                <App />
-            </ToastProvider>
-        );
+        root.render(<ToastProvider><App /></ToastProvider>);
     </script>
 </body>
 </html>
