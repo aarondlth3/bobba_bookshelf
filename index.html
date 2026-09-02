@@ -889,7 +889,7 @@
                     <header className="bg-white border-b border-slate-200 shrink-0 z-20 relative shadow-sm">
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
                             <div className="flex items-center gap-8">
-                                <div className="flex items-center gap-2 cursor-pointer" onClick={() => {setView('library'); setActiveProject(null); setSearch(''); setSelectedTags([]);}}>
+                                <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => {setView('library'); setActiveProject(null); setSearch(''); setSelectedTags([]);}}>
                                     <img src="https://raw.githubusercontent.com/aarondlth3/bobba_bookshelf/07297969d12577f03fab52d59711c7cc3000bd1b/images/bookshelf_img.png" alt="Bookshelf Logo" className="h-10 w-auto object-contain" />
                                 </div>
                                 <nav className="hidden md:flex gap-6">
@@ -897,13 +897,29 @@
                                     <button onClick={() => {setView('projects'); setActiveProject(null); setSearch(''); setSelectedTags([]);}} className={`text-sm font-semibold transition-colors flex items-center gap-2 ${view === 'projects' || activeProject ? 'text-brand-600 border-b-2 border-brand-500 pb-1 translate-y-[2px]' : 'text-slate-500 hover:text-slate-800'}`}><i className="ph ph-folders"></i> Proyectos</button>
                                 </nav>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                
+                                {/* Botón de navegación alternante (Solo Móviles) */}
+                                <button 
+                                    onClick={() => {
+                                        const isLibrary = view === 'library' && !activeProject;
+                                        setView(isLibrary ? 'projects' : 'library');
+                                        setActiveProject(null);
+                                        setSearch('');
+                                        setSelectedTags([]);
+                                    }}
+                                    className="md:hidden flex items-center justify-center px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition-colors gap-2 border border-slate-200 shadow-sm"
+                                >
+                                    <i className={`ph ${view === 'library' && !activeProject ? 'ph-folders' : 'ph-books'} text-lg`}></i>
+                                    <span className="hidden min-[375px]:inline">{view === 'library' && !activeProject ? 'Proyectos' : 'Biblioteca'}</span>
+                                </button>
+
                                 {view === 'library' && !activeProject ? (
-                                    <button onClick={() => setBookForm({ open: true, data: null, saving: false })} className="bg-brand-500 hover:bg-brand-600 text-slate-900 px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105">
+                                    <button onClick={() => setBookForm({ open: true, data: null, saving: false })} className="bg-brand-500 hover:bg-brand-600 text-slate-900 px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105 shrink-0">
                                         <i className="ph ph-plus-circle text-lg"></i> <span className="hidden sm:inline">Nuevo Libro</span>
                                     </button>
                                 ) : (
-                                    <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105">
+                                    <button onClick={() => setProjectForm({ open: true, data: null, saving: false })} className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-sm transform hover:scale-105 shrink-0">
                                         <i className="ph ph-folder-plus text-lg"></i> <span className="hidden sm:inline">Nuevo Proyecto</span>
                                     </button>
                                 )}
